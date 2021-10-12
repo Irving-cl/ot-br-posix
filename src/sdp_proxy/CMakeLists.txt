@@ -1,5 +1,5 @@
 #
-#  Copyright (c) 2020-2021, The OpenThread Authors.
+#  Copyright (c) 2021, The OpenThread Authors.
 #  All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
@@ -26,34 +26,14 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 
-add_subdirectory(agent)
-add_subdirectory(border_agent)
-add_subdirectory(common)
-add_subdirectory(ncp)
-add_subdirectory(sdp_proxy)
+add_library(otbr-sdp-proxy
+    advertising_proxy.cpp
+    advertising_proxy.hpp
+    discovery_proxy.cpp
+    discovery_proxy.hpp
+)
 
-if(OTBR_DBUS)
-    add_subdirectory(dbus)
-endif()
-
-if(OTBR_MDNS)
-    add_subdirectory(mdns)
-endif()
-
-add_subdirectory(utils)
-
-if(OTBR_OPENWRT)
-    add_subdirectory(openwrt)
-endif()
-
-if(OTBR_WEB)
-    add_subdirectory(web)
-endif()
-
-if(OTBR_REST)
-    add_subdirectory(rest)
-endif()
-
-if (OTBR_BACKBONE_ROUTER)
-    add_subdirectory(backbone_router)
-endif()
+target_link_libraries(otbr-sdp-proxy PRIVATE
+    $<$<BOOL:${OTBR_MDNS}>:otbr-mdns>
+    otbr-common
+)
