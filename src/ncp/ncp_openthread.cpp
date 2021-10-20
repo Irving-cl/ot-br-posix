@@ -170,8 +170,6 @@ void ControllerOpenThread::HandleStateChanged(otChangedFlags aFlags)
 
 void ControllerOpenThread::Update(MainloopContext &aMainloop)
 {
-    mTaskRunner.Update(aMainloop);
-
     if (otTaskletsArePending(mInstance))
     {
         aMainloop.mTimeout = ToTimeval(Microseconds::zero());
@@ -185,8 +183,6 @@ void ControllerOpenThread::Process(const MainloopContext &aMainloop)
     otTaskletsProcess(mInstance);
 
     otSysMainloopProcess(mInstance, &aMainloop);
-
-    mTaskRunner.Process(aMainloop);
 
     if (getenv("OTBR_NO_AUTO_ATTACH") == nullptr && mThreadHelper->TryResumeNetwork() == OT_ERROR_NONE)
     {
