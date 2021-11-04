@@ -71,8 +71,8 @@ public:
     /**
      * The constructor of a Thread helper.
      *
-     * @param[in]   aInstance  The Thread instance.
-     * @param[in]   aNcp       The ncp controller.
+     * @param[in] aInstance  The Thread instance.
+     * @param[in] aNcp       The ncp controller.
      *
      */
     ThreadHelper(otInstance *aInstance, otbr::Ncp::ControllerOpenThread *aNcp);
@@ -80,7 +80,7 @@ public:
     /**
      * This method adds a callback for device role change.
      *
-     * @param[in]   aHandler  The device role handler.
+     * @param[in] aHandler  The device role handler.
      *
      */
     void AddDeviceRoleHandler(DeviceRoleHandler aHandler);
@@ -95,8 +95,8 @@ public:
     /**
      * This method permits unsecure join on port.
      *
-     * @param[in]   aPort     The port number.
-     * @param[in]   aSeconds  The timeout to close the port, 0 for never close.
+     * @param[in] aPort     The port number.
+     * @param[in] aSeconds  The timeout to close the port, 0 for never close.
      *
      * @returns The error value of underlying OpenThread api calls.
      *
@@ -106,7 +106,7 @@ public:
     /**
      * This method performs a Thread network scan.
      *
-     * @param[in]   aHandler  The scan result handler.
+     * @param[in] aHandler  The scan result handler.
      *
      */
     void Scan(ScanHandler aHandler);
@@ -116,13 +116,13 @@ public:
      *
      * @note The joiner start and the attach proccesses are exclusive
      *
-     * @param[in]   aNetworkName    The network name.
-     * @param[in]   aPanId          The pan id, UINT16_MAX for random.
-     * @param[in]   aExtPanId       The extended pan id, UINT64_MAX for random.
-     * @param[in]   aNetworkKey     The network key, empty for random.
-     * @param[in]   aPSKc           The pre-shared commissioner key, empty for random.
-     * @param[in]   aChannelMask    A bitmask for valid channels, will random select one.
-     * @param[in]   aHandler        The attach result handler.
+     * @param[in] aNetworkName  The network name.
+     * @param[in] aPanId        The pan id, UINT16_MAX for random.
+     * @param[in] aExtPanId     The extended pan id, UINT64_MAX for random.
+     * @param[in] aNetworkKey   The network key, empty for random.
+     * @param[in] aPSKc         The pre-shared commissioner key, empty for random.
+     * @param[in] aChannelMask  A bitmask for valid channels, will random select one.
+     * @param[in] aHandler      The attach result handler.
      *
      */
     void Attach(const std::string &         aNetworkName,
@@ -147,7 +147,7 @@ public:
      * @note The joiner start and the attach proccesses are exclusive, and the
      *       network parameter will be set through the active dataset.
      *
-     * @param[in]   aHandler        The attach result handler.
+     * @param[in] aHandler  The attach result handler.
      *
      */
     void Attach(ResultHandler aHandler);
@@ -174,13 +174,13 @@ public:
      *
      * @note The joiner start and the attach proccesses are exclusive
      *
-     * @param[in]   aPskd             The pre-shared key for device.
-     * @param[in]   aProvisioningUrl  The provision url.
-     * @param[in]   aVendorName       The vendor name.
-     * @param[in]   aVendorModel      The vendor model.
-     * @param[in]   aVendorSwVersion  The vendor software version.
-     * @param[in]   aVendorData       The vendor custom data.
-     * @param[in]   aHandler          The join result handler.
+     * @param[in] aPskd             The pre-shared key for device.
+     * @param[in] aProvisioningUrl  The provision url.
+     * @param[in] aVendorName       The vendor name.
+     * @param[in] aVendorModel      The vendor model.
+     * @param[in] aVendorSwVersion  The vendor software version.
+     * @param[in] aVendorData       The vendor custom data.
+     * @param[in] aHandler          The join result handler.
      *
      */
     void JoinerStart(const std::string &aPskd,
@@ -210,7 +210,7 @@ public:
     /**
      * This method handles OpenThread state changed notification.
      *
-     * @param[in]  aFlags    A bit-field indicating specific state that has changed.  See `OT_CHANGED_*` definitions.
+     * @param[in] aFlags    A bit-field indicating specific state that has changed.  See `OT_CHANGED_*` definitions.
      *
      */
     void StateChangedCallback(otChangedFlags aFlags);
@@ -218,8 +218,8 @@ public:
     /**
      * This method logs OpenThread action result.
      *
-     * @param[in] aAction   The action OpenThread performs.
-     * @param[in] aError    The action result.
+     * @param[in] aAction  The action OpenThread performs.
+     * @param[in] aError   The action result.
      *
      */
     static void LogOpenThreadResult(const char *aAction, otError aError);
