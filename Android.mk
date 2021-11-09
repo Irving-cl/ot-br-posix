@@ -131,6 +131,7 @@ LOCAL_SRC_FILES := \
     src/dbus/server/dbus_thread_object.cpp \
     src/dbus/server/error_helper.cpp \
     src/mdns/mdns.cpp \
+    src/utils/dns_utils.cpp \
     src/utils/hex.cpp \
     src/utils/strcpy_utils.cpp \
 
