@@ -132,6 +132,8 @@ otbrError DBusThreadObject::Init(void)
                    std::bind(&DBusThreadObject::AddExternalRouteHandler, this, _1));
     RegisterMethod(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_REMOVE_EXTERNAL_ROUTE_METHOD,
                    std::bind(&DBusThreadObject::RemoveExternalRouteHandler, this, _1));
+    RegisterMethod(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_UPDATE_VENDOR_MESHCOP_TXT_METHOD,
+                   std::bind(&DBusThreadObject::UpdateMeshCopTxtHandler, this, _1));
 
     RegisterMethod(DBUS_INTERFACE_INTROSPECTABLE, DBUS_INTROSPECT_METHOD,
                    std::bind(&DBusThreadObject::IntrospectHandler, this, _1));
@@ -1061,6 +1063,29 @@ otError DBusThreadObject::SetRadioRegionHandler(DBusMessageIter &aIter)
 
 exit:
     return error;
+}
+
+void DBusThreadObject::UpdateMeshCopTxtHandler(DBusRequest &aRequest)
+{
+    auto                                        threadHelper = mNcp->GetThreadHelper();
+    otError                                     error        = OT_ERROR_NONE;
+    std::map<std::string, std::vector<uint8_t>> update;
+    std::vector<TxtEntry>                       updatedTxtEntries;
+    auto                                        args = std::tie(updatedTxtEntries);
+
+    VerifyOrExit(DBusMessageToTuple(*aRequest.GetMessage(), args) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
+    for (const auto &entry : updatedTxtEntries)
+    {
+        update[entry.mKey] = entry.mValue;
+    }
+    for (const auto reservedKey : {"rv", "tv", "sb", "nn", "xp", "at", "pt", "dn", "sq", "bb", "omr"})
+    {
+        VerifyOrExit(!update.count(reservedKey), error = OT_ERROR_INVALID_ARGS);
+    }
+    threadHelper->OnUpdateMeshCopTxt(std::move(update));
+
+exit:
+    aRequest.ReplyOtResult(error);
 }
 
 otError DBusThreadObject::GetRadioRegionHandler(DBusMessageIter &aIter)
