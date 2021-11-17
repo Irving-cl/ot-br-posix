@@ -155,6 +155,30 @@ exit:
     }
 }
 
+void ThreadHelper::EnergyScan(uint32_t aScanDuration, EnergyScanHandler aHandler)
+{
+    otError  error             = OT_ERROR_NONE;
+    uint32_t preferredChannels = otPlatRadioGetPreferredChannelMask(mInstance);
+
+    VerifyOrExit(aHandler != nullptr, error = OT_ERROR_BUSY);
+    VerifyOrExit(aScanDuration < UINT16_MAX, error = OT_ERROR_INVALID_ARGS);
+    mEnergyScanHandler = aHandler;
+    mEnergyScanResults.clear();
+
+    error = otLinkEnergyScan(mInstance, preferredChannels, static_cast<uint16_t>(aScanDuration),
+                             &ThreadHelper::EnergyScanCallback, this);
+
+exit:
+    if (error != OT_ERROR_NONE)
+    {
+        if (aHandler)
+        {
+            mEnergyScanHandler(error, {});
+        }
+        mEnergyScanHandler = nullptr;
+    }
+}
+
 void ThreadHelper::RandomFill(void *aBuf, size_t size)
 {
     std::uniform_int_distribution<> dist(0, UINT8_MAX);
@@ -185,6 +209,28 @@ void ThreadHelper::ActiveScanHandler(otActiveScanResult *aResult)
     else
     {
         mScanResults.push_back(*aResult);
+    }
+}
+
+void ThreadHelper::EnergyScanCallback(otEnergyScanResult *aResult, void *aThreadHelper)
+{
+    ThreadHelper *helper = static_cast<ThreadHelper *>(aThreadHelper);
+
+    helper->EnergyScanCallback(aResult);
+}
+
+void ThreadHelper::EnergyScanCallback(otEnergyScanResult *aResult)
+{
+    if (aResult == nullptr)
+    {
+        if (mEnergyScanHandler != nullptr)
+        {
+            mEnergyScanHandler(OT_ERROR_NONE, mEnergyScanResults);
+        }
+    }
+    else
+    {
+        mEnergyScanResults.push_back(*aResult);
     }
 }
 

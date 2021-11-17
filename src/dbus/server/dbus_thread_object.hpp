@@ -80,6 +80,7 @@ private:
     void NcpResetHandler(void);
 
     void ScanHandler(DBusRequest &aRequest);
+    void EnergyScanHandler(DBusRequest &aRequest);
     void AttachHandler(DBusRequest &aRequest);
     void AttachAllNodesToHandler(DBusRequest &aRequest);
     void DetachHandler(DBusRequest &aRequest);
@@ -134,6 +135,7 @@ private:
     otError GetRadioRegionHandler(DBusMessageIter &aIter);
 
     void ReplyScanResult(DBusRequest &aRequest, otError aError, const std::vector<otActiveScanResult> &aResult);
+    void ReplyEnergyScanResult(DBusRequest &aRequest, otError aError, const std::vector<otEnergyScanResult> &aResult);
 
     otbr::Ncp::ControllerOpenThread *mNcp;
 };
