@@ -130,12 +130,12 @@ do_build()
         "-DCMAKE_INSTALL_PREFIX=/usr"
         "-DOT_THREAD_VERSION=1.3"
         "-DOTBR_DBUS=ON"
-        "-DOTBR_FEATURE_FLAGS=ON"
-        "-DOTBR_TELEMETRY_DATA_API=ON"
-        "-DOTBR_WEB=ON"
-        "-DOTBR_UNSECURE_JOIN=ON"
-        "-DOTBR_TREL=ON"
-        "-DOTBR_LINK_METRICS_TELEMETRY=ON"
+        "-DOTBR_FEATURE_FLAGS=OFF"
+        "-DOTBR_TELEMETRY_DATA_API=OFF"
+        "-DOTBR_WEB=OFF"
+        "-DOTBR_UNSECURE_JOIN=OFF"
+        "-DOTBR_TREL=OFF"
+        "-DOTBR_LINK_METRICS_TELEMETRY=OFF"
         ${otbr_options[@]+"${otbr_options[@]}"}
     )
 

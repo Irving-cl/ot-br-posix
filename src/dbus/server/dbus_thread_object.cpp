@@ -58,6 +58,8 @@
 #endif
 #include "proto/capabilities.pb.h"
 
+#include "posix/platform/cp_spinel.hpp"
+
 using std::placeholders::_1;
 using std::placeholders::_2;
 
@@ -403,7 +405,7 @@ void DBusThreadObject::AttachHandler(DBusRequest &aRequest)
         threadHelper->Attach(name, panid, extPanId, networkKey, pskc, channelMask,
                              [aRequest](otError aError, int64_t aAttachDelayMs) mutable {
                                  OT_UNUSED_VARIABLE(aAttachDelayMs);
-
+                                 otbrLogInfo("!!! Attach error:%d", aError);
                                  aRequest.ReplyOtResult(aError);
                              });
     }
@@ -439,7 +441,7 @@ void DBusThreadObject::FactoryResetHandler(DBusRequest &aRequest)
     otError error = OT_ERROR_NONE;
 
     SuccessOrExit(error = mNcp->GetThreadHelper()->Detach());
-    SuccessOrExit(otInstanceErasePersistentInfo(mNcp->GetThreadHelper()->GetInstance()));
+    // SuccessOrExit(otInstanceErasePersistentInfo(mNcp->GetThreadHelper()->GetInstance()));
     mNcp->Reset();
 
 exit:
@@ -473,7 +475,9 @@ void DBusThreadObject::JoinerStopHandler(DBusRequest &aRequest)
 {
     auto threadHelper = mNcp->GetThreadHelper();
 
-    otJoinerStop(threadHelper->GetInstance());
+    // TODO: JoinerStop
+    (void)threadHelper;
+    //otJoinerStop(threadHelper->GetInstance());
     aRequest.ReplyOtResult(OT_ERROR_NONE);
 }
 
@@ -520,8 +524,10 @@ void DBusThreadObject::AddOnMeshPrefixHandler(DBusRequest &aRequest)
     config.mOnMesh         = onMeshPrefix.mOnMesh;
     config.mStable         = onMeshPrefix.mStable;
 
-    SuccessOrExit(error = otBorderRouterAddOnMeshPrefix(threadHelper->GetInstance(), &config));
-    SuccessOrExit(error = otBorderRouterRegister(threadHelper->GetInstance()));
+    // TODO: BorderRouter ot APIs
+    (void)threadHelper;
+    // SuccessOrExit(error = otBorderRouterAddOnMeshPrefix(threadHelper->GetInstance(), &config));
+    // SuccessOrExit(error = otBorderRouterRegister(threadHelper->GetInstance()));
 
 exit:
     aRequest.ReplyOtResult(error);
@@ -540,8 +546,10 @@ void DBusThreadObject::RemoveOnMeshPrefixHandler(DBusRequest &aRequest)
     std::copy(onMeshPrefix.mPrefix.begin(), onMeshPrefix.mPrefix.end(), &prefix.mPrefix.mFields.m8[0]);
     prefix.mLength = onMeshPrefix.mLength;
 
-    SuccessOrExit(error = otBorderRouterRemoveOnMeshPrefix(threadHelper->GetInstance(), &prefix));
-    SuccessOrExit(error = otBorderRouterRegister(threadHelper->GetInstance()));
+    // TODO: BorderRouter ot APIs
+    (void)threadHelper;
+    // SuccessOrExit(error = otBorderRouterRemoveOnMeshPrefix(threadHelper->GetInstance(), &prefix));
+    // SuccessOrExit(error = otBorderRouterRegister(threadHelper->GetInstance()));
 
 exit:
     aRequest.ReplyOtResult(error);
@@ -549,12 +557,12 @@ exit:
 
 void DBusThreadObject::AddExternalRouteHandler(DBusRequest &aRequest)
 {
-    auto                  threadHelper = mNcp->GetThreadHelper();
     ExternalRoute         route;
     auto                  args  = std::tie(route);
     otError               error = OT_ERROR_NONE;
     otExternalRouteConfig otRoute;
     otIp6Prefix          &prefix = otRoute.mPrefix;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
 
     VerifyOrExit(DBusMessageToTuple(*aRequest.GetMessage(), args) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -564,10 +572,10 @@ void DBusThreadObject::AddExternalRouteHandler(DBusRequest &aRequest)
     otRoute.mPreference = route.mPreference;
     otRoute.mStable     = route.mStable;
 
-    SuccessOrExit(error = otBorderRouterAddRoute(threadHelper->GetInstance(), &otRoute));
+    SuccessOrExit(error = radioSpinel.BorderRouterAddRoute(otRoute));
     if (route.mStable)
     {
-        SuccessOrExit(error = otBorderRouterRegister(threadHelper->GetInstance()));
+        SuccessOrExit(error = radioSpinel.BorderRouterRegister());
     }
 
 exit:
@@ -576,11 +584,11 @@ exit:
 
 void DBusThreadObject::RemoveExternalRouteHandler(DBusRequest &aRequest)
 {
-    auto        threadHelper = mNcp->GetThreadHelper();
     Ip6Prefix   routePrefix;
     auto        args  = std::tie(routePrefix);
     otError     error = OT_ERROR_NONE;
     otIp6Prefix prefix;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
 
     VerifyOrExit(DBusMessageToTuple(*aRequest.GetMessage(), args) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -588,8 +596,8 @@ void DBusThreadObject::RemoveExternalRouteHandler(DBusRequest &aRequest)
     std::copy(routePrefix.mPrefix.begin(), routePrefix.mPrefix.end(), &prefix.mPrefix.mFields.m8[0]);
     prefix.mLength = routePrefix.mLength;
 
-    SuccessOrExit(error = otBorderRouterRemoveRoute(threadHelper->GetInstance(), &prefix));
-    SuccessOrExit(error = otBorderRouterRegister(threadHelper->GetInstance()));
+    SuccessOrExit(error = radioSpinel.BorderRouterRemoveRoute(prefix));
+    SuccessOrExit(error = radioSpinel.BorderRouterRegister());
 
 exit:
     aRequest.ReplyOtResult(error);
@@ -613,7 +621,8 @@ otError DBusThreadObject::SetMeshLocalPrefixHandler(DBusMessageIter &aIter)
 
     VerifyOrExit(DBusMessageExtractFromVariant(&aIter, data) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
     memcpy(&prefix.m8, &data.front(), sizeof(prefix.m8));
-    error = otThreadSetMeshLocalPrefix(threadHelper->GetInstance(), &prefix);
+    (void)threadHelper;
+    // error = otThreadSetMeshLocalPrefix(threadHelper->GetInstance(), &prefix);
 
 exit:
     return error;
@@ -621,16 +630,17 @@ exit:
 
 otError DBusThreadObject::SetLinkModeHandler(DBusMessageIter &aIter)
 {
-    auto             threadHelper = mNcp->GetThreadHelper();
     LinkModeConfig   cfg;
     otLinkModeConfig otCfg;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
     otError          error = OT_ERROR_NONE;
 
     VerifyOrExit(DBusMessageExtractFromVariant(&aIter, cfg) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
     otCfg.mDeviceType   = cfg.mDeviceType;
     otCfg.mNetworkData  = cfg.mNetworkData;
     otCfg.mRxOnWhenIdle = cfg.mRxOnWhenIdle;
-    error               = otThreadSetLinkMode(threadHelper->GetInstance(), otCfg);
+
+    error               = radioSpinel.ThreadSetLinkMode(otCfg);
 
 exit:
     return error;
@@ -638,10 +648,12 @@ exit:
 
 otError DBusThreadObject::GetLinkModeHandler(DBusMessageIter &aIter)
 {
-    auto             threadHelper = mNcp->GetThreadHelper();
-    otLinkModeConfig otCfg        = otThreadGetLinkMode(threadHelper->GetInstance());
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    otLinkModeConfig otCfg;
     LinkModeConfig   cfg;
     otError          error = OT_ERROR_NONE;
+
+    SuccessOrExit(error = radioSpinel.ThreadGetLinkMode(otCfg));
 
     cfg.mDeviceType   = otCfg.mDeviceType;
     cfg.mNetworkData  = otCfg.mNetworkData;
@@ -656,7 +668,10 @@ exit:
 otError DBusThreadObject::GetDeviceRoleHandler(DBusMessageIter &aIter)
 {
     auto         threadHelper = mNcp->GetThreadHelper();
-    otDeviceRole role         = otThreadGetDeviceRole(threadHelper->GetInstance());
+    // TODO
+    (void)threadHelper;
+    // otDeviceRole role         = otThreadGetDeviceRole(threadHelper->GetInstance());
+    otDeviceRole role = OT_DEVICE_ROLE_DISABLED;
     std::string  roleName     = GetDeviceRoleName(role);
     otError      error        = OT_ERROR_NONE;
 
@@ -669,7 +684,10 @@ exit:
 otError DBusThreadObject::GetNetworkNameHandler(DBusMessageIter &aIter)
 {
     auto        threadHelper = mNcp->GetThreadHelper();
-    std::string networkName  = otThreadGetNetworkName(threadHelper->GetInstance());
+    // TODO
+    // std::string networkName  = otThreadGetNetworkName(threadHelper->GetInstance());
+    std::string networkName = "TODO";
+    (void)threadHelper;
     otError     error        = OT_ERROR_NONE;
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, networkName) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
@@ -681,7 +699,10 @@ exit:
 otError DBusThreadObject::GetPanIdHandler(DBusMessageIter &aIter)
 {
     auto     threadHelper = mNcp->GetThreadHelper();
-    uint16_t panId        = otLinkGetPanId(threadHelper->GetInstance());
+    // TODO
+    // uint16_t panId        = otLinkGetPanId(threadHelper->GetInstance());
+    (void)threadHelper;
+    uint16_t panId = 0;
     otError  error        = OT_ERROR_NONE;
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, panId) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
@@ -692,12 +713,13 @@ exit:
 
 otError DBusThreadObject::GetExtPanIdHandler(DBusMessageIter &aIter)
 {
-    auto                   threadHelper = mNcp->GetThreadHelper();
-    const otExtendedPanId *extPanId     = otThreadGetExtendedPanId(threadHelper->GetInstance());
-    uint64_t               extPanIdVal;
     otError                error = OT_ERROR_NONE;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    otExtendedPanId extPanId;
+    uint64_t               extPanIdVal;
 
-    extPanIdVal = ConvertOpenThreadUint64(extPanId->m8);
+    SuccessOrExit(error = radioSpinel.ThreadGetExtendedPanId(&extPanId));
+    extPanIdVal = ConvertOpenThreadUint64(extPanId.m8);
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, extPanIdVal) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -707,11 +729,15 @@ exit:
 
 otError DBusThreadObject::GetChannelHandler(DBusMessageIter &aIter)
 {
-    auto     threadHelper = mNcp->GetThreadHelper();
-    uint16_t channel      = otLinkGetChannel(threadHelper->GetInstance());
     otError  error        = OT_ERROR_NONE;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    uint8_t channel;
+    uint16_t channelResult;
 
-    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, channel) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
+    SuccessOrExit(error = radioSpinel.LinkGetChannel(channel));
+    channelResult = channel;
+
+    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, channelResult) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
 exit:
     return error;
@@ -723,7 +749,9 @@ otError DBusThreadObject::GetNetworkKeyHandler(DBusMessageIter &aIter)
     otNetworkKey networkKey;
     otError      error = OT_ERROR_NONE;
 
-    otThreadGetNetworkKey(threadHelper->GetInstance(), &networkKey);
+    // TODO
+    (void)threadHelper;
+    // otThreadGetNetworkKey(threadHelper->GetInstance(), &networkKey);
     std::vector<uint8_t> keyVal(networkKey.m8, networkKey.m8 + sizeof(networkKey.m8));
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, keyVal) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -734,7 +762,10 @@ exit:
 otError DBusThreadObject::GetCcaFailureRateHandler(DBusMessageIter &aIter)
 {
     auto     threadHelper = mNcp->GetThreadHelper();
-    uint16_t failureRate  = otLinkGetCcaFailureRate(threadHelper->GetInstance());
+    // TODO
+    // uint16_t failureRate  = otLinkGetCcaFailureRate(threadHelper->GetInstance());
+    (void)threadHelper;
+    uint16_t failureRate = 0;
     otError  error        = OT_ERROR_NONE;
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, failureRate) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
@@ -746,42 +777,44 @@ exit:
 otError DBusThreadObject::GetLinkCountersHandler(DBusMessageIter &aIter)
 {
     auto                 threadHelper = mNcp->GetThreadHelper();
-    const otMacCounters *otCounters   = otLinkGetCounters(threadHelper->GetInstance());
+    // TODO
+    (void)threadHelper;
+    // const otMacCounters *otCounters   = otLinkGetCounters(threadHelper->GetInstance());
     MacCounters          counters;
     otError              error = OT_ERROR_NONE;
 
-    counters.mTxTotal              = otCounters->mTxTotal;
-    counters.mTxUnicast            = otCounters->mTxUnicast;
-    counters.mTxBroadcast          = otCounters->mTxBroadcast;
-    counters.mTxAckRequested       = otCounters->mTxAckRequested;
-    counters.mTxAcked              = otCounters->mTxAcked;
-    counters.mTxNoAckRequested     = otCounters->mTxNoAckRequested;
-    counters.mTxData               = otCounters->mTxData;
-    counters.mTxDataPoll           = otCounters->mTxDataPoll;
-    counters.mTxBeacon             = otCounters->mTxBeacon;
-    counters.mTxBeaconRequest      = otCounters->mTxBeaconRequest;
-    counters.mTxOther              = otCounters->mTxOther;
-    counters.mTxRetry              = otCounters->mTxRetry;
-    counters.mTxErrCca             = otCounters->mTxErrCca;
-    counters.mTxErrAbort           = otCounters->mTxErrAbort;
-    counters.mTxErrBusyChannel     = otCounters->mTxErrBusyChannel;
-    counters.mRxTotal              = otCounters->mRxTotal;
-    counters.mRxUnicast            = otCounters->mRxUnicast;
-    counters.mRxBroadcast          = otCounters->mRxBroadcast;
-    counters.mRxData               = otCounters->mRxData;
-    counters.mRxDataPoll           = otCounters->mRxDataPoll;
-    counters.mRxBeacon             = otCounters->mRxBeacon;
-    counters.mRxBeaconRequest      = otCounters->mRxBeaconRequest;
-    counters.mRxOther              = otCounters->mRxOther;
-    counters.mRxAddressFiltered    = otCounters->mRxAddressFiltered;
-    counters.mRxDestAddrFiltered   = otCounters->mRxDestAddrFiltered;
-    counters.mRxDuplicated         = otCounters->mRxDuplicated;
-    counters.mRxErrNoFrame         = otCounters->mRxErrNoFrame;
-    counters.mRxErrUnknownNeighbor = otCounters->mRxErrUnknownNeighbor;
-    counters.mRxErrInvalidSrcAddr  = otCounters->mRxErrInvalidSrcAddr;
-    counters.mRxErrSec             = otCounters->mRxErrSec;
-    counters.mRxErrFcs             = otCounters->mRxErrFcs;
-    counters.mRxErrOther           = otCounters->mRxErrOther;
+    // counters.mTxTotal              = otCounters->mTxTotal;
+    // counters.mTxUnicast            = otCounters->mTxUnicast;
+    // counters.mTxBroadcast          = otCounters->mTxBroadcast;
+    // counters.mTxAckRequested       = otCounters->mTxAckRequested;
+    // counters.mTxAcked              = otCounters->mTxAcked;
+    // counters.mTxNoAckRequested     = otCounters->mTxNoAckRequested;
+    // counters.mTxData               = otCounters->mTxData;
+    // counters.mTxDataPoll           = otCounters->mTxDataPoll;
+    // counters.mTxBeacon             = otCounters->mTxBeacon;
+    // counters.mTxBeaconRequest      = otCounters->mTxBeaconRequest;
+    // counters.mTxOther              = otCounters->mTxOther;
+    // counters.mTxRetry              = otCounters->mTxRetry;
+    // counters.mTxErrCca             = otCounters->mTxErrCca;
+    // counters.mTxErrAbort           = otCounters->mTxErrAbort;
+    // counters.mTxErrBusyChannel     = otCounters->mTxErrBusyChannel;
+    // counters.mRxTotal              = otCounters->mRxTotal;
+    // counters.mRxUnicast            = otCounters->mRxUnicast;
+    // counters.mRxBroadcast          = otCounters->mRxBroadcast;
+    // counters.mRxData               = otCounters->mRxData;
+    // counters.mRxDataPoll           = otCounters->mRxDataPoll;
+    // counters.mRxBeacon             = otCounters->mRxBeacon;
+    // counters.mRxBeaconRequest      = otCounters->mRxBeaconRequest;
+    // counters.mRxOther              = otCounters->mRxOther;
+    // counters.mRxAddressFiltered    = otCounters->mRxAddressFiltered;
+    // counters.mRxDestAddrFiltered   = otCounters->mRxDestAddrFiltered;
+    // counters.mRxDuplicated         = otCounters->mRxDuplicated;
+    // counters.mRxErrNoFrame         = otCounters->mRxErrNoFrame;
+    // counters.mRxErrUnknownNeighbor = otCounters->mRxErrUnknownNeighbor;
+    // counters.mRxErrInvalidSrcAddr  = otCounters->mRxErrInvalidSrcAddr;
+    // counters.mRxErrSec             = otCounters->mRxErrSec;
+    // counters.mRxErrFcs             = otCounters->mRxErrFcs;
+    // counters.mRxErrOther           = otCounters->mRxErrOther;
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, counters) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -792,14 +825,16 @@ exit:
 otError DBusThreadObject::GetIp6CountersHandler(DBusMessageIter &aIter)
 {
     auto                threadHelper = mNcp->GetThreadHelper();
-    const otIpCounters *otCounters   = otThreadGetIp6Counters(threadHelper->GetInstance());
+    // TODO
+    (void)threadHelper;
+    // const otIpCounters *otCounters   = otThreadGetIp6Counters(threadHelper->GetInstance());
     IpCounters          counters;
     otError             error = OT_ERROR_NONE;
 
-    counters.mTxSuccess = otCounters->mTxSuccess;
-    counters.mTxFailure = otCounters->mTxFailure;
-    counters.mRxSuccess = otCounters->mRxSuccess;
-    counters.mRxFailure = otCounters->mRxFailure;
+    // counters.mTxSuccess = otCounters->mTxSuccess;
+    // counters.mTxFailure = otCounters->mTxFailure;
+    // counters.mRxSuccess = otCounters->mRxSuccess;
+    // counters.mRxFailure = otCounters->mRxFailure;
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, counters) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -810,7 +845,10 @@ exit:
 otError DBusThreadObject::GetSupportedChannelMaskHandler(DBusMessageIter &aIter)
 {
     auto     threadHelper = mNcp->GetThreadHelper();
-    uint32_t channelMask  = otLinkGetSupportedChannelMask(threadHelper->GetInstance());
+    // TODO
+    (void)threadHelper;
+    // uint32_t channelMask  = otLinkGetSupportedChannelMask(threadHelper->GetInstance());
+    uint32_t channelMask = 0xffffffff;
     otError  error        = OT_ERROR_NONE;
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, channelMask) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
@@ -821,8 +859,8 @@ exit:
 
 otError DBusThreadObject::GetPreferredChannelMaskHandler(DBusMessageIter &aIter)
 {
-    auto     threadHelper = mNcp->GetThreadHelper();
-    uint32_t channelMask  = otPlatRadioGetPreferredChannelMask(threadHelper->GetInstance());
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    uint32_t channelMask  = radioSpinel.GetRadioChannelMask(true);
     otError  error        = OT_ERROR_NONE;
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, channelMask) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
@@ -835,7 +873,10 @@ otError DBusThreadObject::GetRloc16Handler(DBusMessageIter &aIter)
 {
     auto     threadHelper = mNcp->GetThreadHelper();
     otError  error        = OT_ERROR_NONE;
-    uint16_t rloc16       = otThreadGetRloc16(threadHelper->GetInstance());
+    // TODO
+    (void)threadHelper;
+    uint16_t rloc16 = 0x1234;
+    // uint16_t rloc16       = otThreadGetRloc16(threadHelper->GetInstance());
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, rloc16) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -847,8 +888,11 @@ otError DBusThreadObject::GetExtendedAddressHandler(DBusMessageIter &aIter)
 {
     auto                threadHelper    = mNcp->GetThreadHelper();
     otError             error           = OT_ERROR_NONE;
-    const otExtAddress *addr            = otLinkGetExtendedAddress(threadHelper->GetInstance());
-    uint64_t            extendedAddress = ConvertOpenThreadUint64(addr->m8);
+    // TODO
+    (void)threadHelper;
+    uint64_t extendedAddress = 1237840123748123;
+    // const otExtAddress *addr            = otLinkGetExtendedAddress(threadHelper->GetInstance());
+    // uint64_t            extendedAddress = ConvertOpenThreadUint64(addr->m8);
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, extendedAddress) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -860,12 +904,15 @@ otError DBusThreadObject::GetRouterIdHandler(DBusMessageIter &aIter)
 {
     auto         threadHelper = mNcp->GetThreadHelper();
     otError      error        = OT_ERROR_NONE;
-    uint16_t     rloc16       = otThreadGetRloc16(threadHelper->GetInstance());
-    otRouterInfo info;
+    // TODO
+    (void)threadHelper;
+    uint8_t  routerId = 1;
+    // uint16_t     rloc16       = otThreadGetRloc16(threadHelper->GetInstance());
+    // otRouterInfo info;
 
-    VerifyOrExit(otThreadGetRouterInfo(threadHelper->GetInstance(), rloc16, &info) == OT_ERROR_NONE,
-                 error = OT_ERROR_INVALID_STATE);
-    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, info.mRouterId) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
+    // VerifyOrExit(otThreadGetRouterInfo(threadHelper->GetInstance(), rloc16, &info) == OT_ERROR_NONE,
+    //              error = OT_ERROR_INVALID_STATE);
+    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, routerId) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
 exit:
     return error;
@@ -873,12 +920,12 @@ exit:
 
 otError DBusThreadObject::GetLeaderDataHandler(DBusMessageIter &aIter)
 {
-    auto                threadHelper = mNcp->GetThreadHelper();
     otError             error        = OT_ERROR_NONE;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
     struct otLeaderData data;
     LeaderData          leaderData;
 
-    SuccessOrExit(error = otThreadGetLeaderData(threadHelper->GetInstance(), &data));
+    SuccessOrExit(error = radioSpinel.ThreadGetLeaderData(data));
     leaderData.mPartitionId       = data.mPartitionId;
     leaderData.mWeighting         = data.mWeighting;
     leaderData.mDataVersion       = data.mDataVersion;
@@ -893,14 +940,14 @@ exit:
 otError DBusThreadObject::GetNetworkDataHandler(DBusMessageIter &aIter)
 {
     static constexpr size_t kNetworkDataMaxSize = 255;
-    auto                    threadHelper        = mNcp->GetThreadHelper();
     otError                 error               = OT_ERROR_NONE;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
     uint8_t                 data[kNetworkDataMaxSize];
     uint8_t                 len = sizeof(data);
     std::vector<uint8_t>    networkData;
 
-    SuccessOrExit(error = otNetDataGet(threadHelper->GetInstance(), /*stable=*/false, data, &len));
-    networkData = std::vector<uint8_t>(&data[0], &data[len]);
+    error =  radioSpinel.ThreadGetNetworkData(data, len);
+    networkData.assign(data, data + len);
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, networkData) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
 exit:
@@ -910,14 +957,14 @@ exit:
 otError DBusThreadObject::GetStableNetworkDataHandler(DBusMessageIter &aIter)
 {
     static constexpr size_t kNetworkDataMaxSize = 255;
-    auto                    threadHelper        = mNcp->GetThreadHelper();
     otError                 error               = OT_ERROR_NONE;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
     uint8_t                 data[kNetworkDataMaxSize];
     uint8_t                 len = sizeof(data);
     std::vector<uint8_t>    networkData;
 
-    SuccessOrExit(error = otNetDataGet(threadHelper->GetInstance(), /*stable=*/true, data, &len));
-    networkData = std::vector<uint8_t>(&data[0], &data[len]);
+    error =  radioSpinel.ThreadGetStableNetworkData(data, len);
+    networkData.assign(data, data + len);
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, networkData) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
 exit:
@@ -926,9 +973,11 @@ exit:
 
 otError DBusThreadObject::GetLocalLeaderWeightHandler(DBusMessageIter &aIter)
 {
-    auto    threadHelper = mNcp->GetThreadHelper();
     otError error        = OT_ERROR_NONE;
-    uint8_t weight       = otThreadGetLocalLeaderWeight(threadHelper->GetInstance());
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    uint8_t weight;
+
+    SuccessOrExit(radioSpinel.ThreadGetLocalLeaderWeight(weight));
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, weight) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -984,17 +1033,18 @@ exit:
 
 otError DBusThreadObject::GetChildTableHandler(DBusMessageIter &aIter)
 {
-    auto                   threadHelper = mNcp->GetThreadHelper();
     otError                error        = OT_ERROR_NONE;
-    uint16_t               childIndex   = 0;
-    otChildInfo            childInfo;
-    std::vector<ChildInfo> childTable;
+    otChildInfo childTable[128];
+    uint8_t childCount = sizeof(childTable) / sizeof(otChildInfo);
+    std::vector<ChildInfo> childTableVec;
 
-    while (otThreadGetChildInfoByIndex(threadHelper->GetInstance(), childIndex, &childInfo) == OT_ERROR_NONE)
+    SuccessOrExit(error = otPlatCpGetChildTable(childTable, childCount));
+    for (uint8_t i = 0; i < childCount; i++)
     {
         ChildInfo info;
+        otChildInfo &childInfo = childTable[i];
 
-        info.mExtAddress         = ConvertOpenThreadUint64(childInfo.mExtAddress.m8);
+        info.mExtAddress = ConvertOpenThreadUint64(childInfo.mExtAddress.m8);
         info.mTimeout            = childInfo.mTimeout;
         info.mAge                = childInfo.mAge;
         info.mChildId            = childInfo.mChildId;
@@ -1008,11 +1058,11 @@ otError DBusThreadObject::GetChildTableHandler(DBusMessageIter &aIter)
         info.mFullThreadDevice   = childInfo.mFullThreadDevice;
         info.mFullNetworkData    = childInfo.mFullNetworkData;
         info.mIsStateRestoring   = childInfo.mIsStateRestoring;
-        childTable.push_back(info);
-        childIndex++;
+
+        childTableVec.push_back(info);
     }
 
-    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, childTable) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
+    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, childTableVec) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
 exit:
     return error;
@@ -1020,35 +1070,26 @@ exit:
 
 otError DBusThreadObject::GetNeighborTableHandler(DBusMessageIter &aIter)
 {
-    auto                      threadHelper = mNcp->GetThreadHelper();
     otError                   error        = OT_ERROR_NONE;
-    otNeighborInfoIterator    iter         = OT_NEIGHBOR_INFO_ITERATOR_INIT;
-    otNeighborInfo            neighborInfo;
-    std::vector<NeighborInfo> neighborTable;
+    otNeighborInfo neighborTable[160];
+    uint8_t neighborCount = sizeof(neighborTable) / sizeof(NeighborInfo);
+    std::vector<NeighborInfo> neighborTableVec;
 
-    while (otThreadGetNextNeighborInfo(threadHelper->GetInstance(), &iter, &neighborInfo) == OT_ERROR_NONE)
+    SuccessOrExit(error = otPlatCpGetNeighborTable(neighborTable, neighborCount));
+    for (uint8_t i = 0; i < neighborCount; i++)
     {
         NeighborInfo info;
+        otNeighborInfo &neighbor = neighborTable[i];
 
-        info.mExtAddress       = ConvertOpenThreadUint64(neighborInfo.mExtAddress.m8);
-        info.mAge              = neighborInfo.mAge;
-        info.mRloc16           = neighborInfo.mRloc16;
-        info.mLinkFrameCounter = neighborInfo.mLinkFrameCounter;
-        info.mMleFrameCounter  = neighborInfo.mMleFrameCounter;
-        info.mLinkQualityIn    = neighborInfo.mLinkQualityIn;
-        info.mAverageRssi      = neighborInfo.mAverageRssi;
-        info.mLastRssi         = neighborInfo.mLastRssi;
-        info.mFrameErrorRate   = neighborInfo.mFrameErrorRate;
-        info.mMessageErrorRate = neighborInfo.mMessageErrorRate;
-        info.mVersion          = neighborInfo.mVersion;
-        info.mRxOnWhenIdle     = neighborInfo.mRxOnWhenIdle;
-        info.mFullThreadDevice = neighborInfo.mFullThreadDevice;
-        info.mFullNetworkData  = neighborInfo.mFullNetworkData;
-        info.mIsChild          = neighborInfo.mIsChild;
-        neighborTable.push_back(info);
+        info.mExtAddress = ConvertOpenThreadUint64(neighbor.mExtAddress.m8);
+        info.mRloc16 = neighbor.mRloc16;
+        info.mAge = neighbor.mAge;
+        // TODO: other fields
+
+        neighborTableVec.push_back(info);
     }
 
-    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, neighborTable) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
+    VerifyOrExit(DBusMessageEncodeToVariant(&aIter, neighborTableVec) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
 exit:
     return error;
@@ -1056,9 +1097,11 @@ exit:
 
 otError DBusThreadObject::GetPartitionIDHandler(DBusMessageIter &aIter)
 {
-    auto     threadHelper = mNcp->GetThreadHelper();
     otError  error        = OT_ERROR_NONE;
-    uint32_t partitionId  = otThreadGetPartitionId(threadHelper->GetInstance());
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+
+    uint32_t partitionId = 0;
+    SuccessOrExit(error = radioSpinel.ThreadGetPartitionId(partitionId));
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, partitionId) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -1068,9 +1111,11 @@ exit:
 
 otError DBusThreadObject::GetInstantRssiHandler(DBusMessageIter &aIter)
 {
-    auto    threadHelper = mNcp->GetThreadHelper();
     otError error        = OT_ERROR_NONE;
-    int8_t  rssi         = otPlatRadioGetRssi(threadHelper->GetInstance());
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    int8_t rssi = 0;
+
+    SuccessOrExit(error = radioSpinel.RadioGetInstantRssi(rssi));
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, rssi) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -1080,11 +1125,11 @@ exit:
 
 otError DBusThreadObject::GetRadioTxPowerHandler(DBusMessageIter &aIter)
 {
-    auto    threadHelper = mNcp->GetThreadHelper();
     otError error        = OT_ERROR_NONE;
-    int8_t  txPower;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    int8_t  txPower = 0;
 
-    SuccessOrExit(error = otPlatRadioGetTransmitPower(threadHelper->GetInstance(), &txPower));
+    SuccessOrExit(error = radioSpinel.RadioGetTxPower(txPower));
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, txPower) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
@@ -1094,15 +1139,18 @@ exit:
 
 otError DBusThreadObject::GetExternalRoutesHandler(DBusMessageIter &aIter)
 {
-    auto                       threadHelper = mNcp->GetThreadHelper();
     otError                    error        = OT_ERROR_NONE;
-    otNetworkDataIterator      iter         = OT_NETWORK_DATA_ITERATOR_INIT;
-    otExternalRouteConfig      config;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    otExternalRouteConfig      routeList[20];
+    uint8_t                    routeCount = sizeof(routeList) / sizeof(otExternalRouteConfig);
     std::vector<ExternalRoute> externalRouteTable;
 
-    while (otNetDataGetNextRoute(threadHelper->GetInstance(), &iter, &config) == OT_ERROR_NONE)
+    SuccessOrExit(error = radioSpinel.BorderRouterGetExternalRouteConfig(routeList, routeCount));
+
+    for (uint8_t i = 0; i < routeCount; i++)
     {
         ExternalRoute route;
+        otExternalRouteConfig &config = routeList[i];
 
         route.mPrefix.mPrefix      = std::vector<uint8_t>(&config.mPrefix.mPrefix.mFields.m8[0],
                                                      &config.mPrefix.mPrefix.mFields.m8[OTBR_IP6_PREFIX_SIZE]);
@@ -1123,32 +1171,33 @@ exit:
 
 otError DBusThreadObject::GetOnMeshPrefixesHandler(DBusMessageIter &aIter)
 {
-    auto                      threadHelper = mNcp->GetThreadHelper();
+    // auto                      threadHelper = mNcp->GetThreadHelper();
     otError                   error        = OT_ERROR_NONE;
-    otNetworkDataIterator     iter         = OT_NETWORK_DATA_ITERATOR_INIT;
-    otBorderRouterConfig      config;
+    // otNetworkDataIterator     iter         = OT_NETWORK_DATA_ITERATOR_INIT;
+    // otBorderRouterConfig      config;
     std::vector<OnMeshPrefix> onMeshPrefixes;
 
-    while (otNetDataGetNextOnMeshPrefix(threadHelper->GetInstance(), &iter, &config) == OT_ERROR_NONE)
-    {
-        OnMeshPrefix prefix;
+    // TODO
+    // while (otNetDataGetNextOnMeshPrefix(threadHelper->GetInstance(), &iter, &config) == OT_ERROR_NONE)
+    // {
+    //     OnMeshPrefix prefix;
 
-        prefix.mPrefix.mPrefix = std::vector<uint8_t>(&config.mPrefix.mPrefix.mFields.m8[0],
-                                                      &config.mPrefix.mPrefix.mFields.m8[OTBR_IP6_PREFIX_SIZE]);
-        prefix.mPrefix.mLength = config.mPrefix.mLength;
-        prefix.mRloc16         = config.mRloc16;
-        prefix.mPreference     = config.mPreference;
-        prefix.mPreferred      = config.mPreferred;
-        prefix.mSlaac          = config.mSlaac;
-        prefix.mDhcp           = config.mDhcp;
-        prefix.mConfigure      = config.mConfigure;
-        prefix.mDefaultRoute   = config.mDefaultRoute;
-        prefix.mOnMesh         = config.mOnMesh;
-        prefix.mStable         = config.mStable;
-        prefix.mNdDns          = config.mNdDns;
-        prefix.mDp             = config.mDp;
-        onMeshPrefixes.push_back(prefix);
-    }
+    //     prefix.mPrefix.mPrefix = std::vector<uint8_t>(&config.mPrefix.mPrefix.mFields.m8[0],
+    //                                                   &config.mPrefix.mPrefix.mFields.m8[OTBR_IP6_PREFIX_SIZE]);
+    //     prefix.mPrefix.mLength = config.mPrefix.mLength;
+    //     prefix.mRloc16         = config.mRloc16;
+    //     prefix.mPreference     = config.mPreference;
+    //     prefix.mPreferred      = config.mPreferred;
+    //     prefix.mSlaac          = config.mSlaac;
+    //     prefix.mDhcp           = config.mDhcp;
+    //     prefix.mConfigure      = config.mConfigure;
+    //     prefix.mDefaultRoute   = config.mDefaultRoute;
+    //     prefix.mOnMesh         = config.mOnMesh;
+    //     prefix.mStable         = config.mStable;
+    //     prefix.mNdDns          = config.mNdDns;
+    //     prefix.mDp             = config.mDp;
+    //     onMeshPrefixes.push_back(prefix);
+    // }
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, onMeshPrefixes) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
 
 exit:
@@ -1157,7 +1206,7 @@ exit:
 
 otError DBusThreadObject::SetActiveDatasetTlvsHandler(DBusMessageIter &aIter)
 {
-    auto                     threadHelper = mNcp->GetThreadHelper();
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
     std::vector<uint8_t>     data;
     otOperationalDatasetTlvs datasetTlvs;
     otError                  error = OT_ERROR_NONE;
@@ -1166,7 +1215,7 @@ otError DBusThreadObject::SetActiveDatasetTlvsHandler(DBusMessageIter &aIter)
     VerifyOrExit(data.size() <= sizeof(datasetTlvs.mTlvs));
     std::copy(std::begin(data), std::end(data), std::begin(datasetTlvs.mTlvs));
     datasetTlvs.mLength = data.size();
-    error               = otDatasetSetActiveTlvs(threadHelper->GetInstance(), &datasetTlvs);
+    error               = radioSpinel.DatasetSetActiveTlvs(&datasetTlvs);
 
 exit:
     return error;
@@ -1174,12 +1223,13 @@ exit:
 
 otError DBusThreadObject::GetActiveDatasetTlvsHandler(DBusMessageIter &aIter)
 {
-    auto                     threadHelper = mNcp->GetThreadHelper();
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    // auto                     threadHelper = mNcp->GetThreadHelper();
     otError                  error        = OT_ERROR_NONE;
     std::vector<uint8_t>     data;
     otOperationalDatasetTlvs datasetTlvs;
 
-    SuccessOrExit(error = otDatasetGetActiveTlvs(threadHelper->GetInstance(), &datasetTlvs));
+    SuccessOrExit(error = radioSpinel.DatasetGetActiveTlvs(&datasetTlvs));
     data = std::vector<uint8_t>{std::begin(datasetTlvs.mTlvs), std::begin(datasetTlvs.mTlvs) + datasetTlvs.mLength};
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, data) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
@@ -1190,12 +1240,13 @@ exit:
 
 otError DBusThreadObject::GetPendingDatasetTlvsHandler(DBusMessageIter &aIter)
 {
-    auto                     threadHelper = mNcp->GetThreadHelper();
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    // auto                     threadHelper = mNcp->GetThreadHelper();
     otError                  error        = OT_ERROR_NONE;
     std::vector<uint8_t>     data;
     otOperationalDatasetTlvs datasetTlvs;
 
-    SuccessOrExit(error = otDatasetGetPendingTlvs(threadHelper->GetInstance(), &datasetTlvs));
+    SuccessOrExit(error = radioSpinel.DatasetGetPendingTlvs(&datasetTlvs));
     data = std::vector<uint8_t>{std::begin(datasetTlvs.mTlvs), std::begin(datasetTlvs.mTlvs) + datasetTlvs.mLength};
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, data) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
@@ -1241,16 +1292,17 @@ exit:
 
 otError DBusThreadObject::SetRadioRegionHandler(DBusMessageIter &aIter)
 {
-    auto        threadHelper = mNcp->GetThreadHelper();
+    // auto        threadHelper = mNcp->GetThreadHelper();
     std::string radioRegion;
     uint16_t    regionCode;
     otError     error = OT_ERROR_NONE;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
 
     VerifyOrExit(DBusMessageExtractFromVariant(&aIter, radioRegion) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
     VerifyOrExit(radioRegion.size() == sizeof(uint16_t), error = OT_ERROR_INVALID_ARGS);
     regionCode = radioRegion[0] << 8 | radioRegion[1];
 
-    error = otPlatRadioSetRegion(threadHelper->GetInstance(), regionCode);
+    error = radioSpinel.SetRadioRegion(regionCode);
 
 exit:
     return error;
@@ -1281,12 +1333,13 @@ exit:
 
 otError DBusThreadObject::GetRadioRegionHandler(DBusMessageIter &aIter)
 {
-    auto        threadHelper = mNcp->GetThreadHelper();
     otError     error        = OT_ERROR_NONE;
     std::string radioRegion;
-    uint16_t    regionCode;
+    uint16_t    regionCode = 0x1;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
 
-    SuccessOrExit(error = otPlatRadioGetRegion(threadHelper->GetInstance(), &regionCode));
+    SuccessOrExit(error = radioSpinel.GetRadioRegion(&regionCode));
+
     radioRegion.resize(sizeof(uint16_t), '\0');
     radioRegion[0] = static_cast<char>((regionCode >> 8) & 0xff);
     radioRegion[1] = static_cast<char>(regionCode & 0xff);
@@ -1512,12 +1565,11 @@ exit:
 
 otError DBusThreadObject::GetEui64Handler(DBusMessageIter &aIter)
 {
-    auto         threadHelper = mNcp->GetThreadHelper();
     otError      error        = OT_ERROR_NONE;
     otExtAddress extAddr;
     uint64_t     eui64;
 
-    otLinkGetFactoryAssignedIeeeEui64(threadHelper->GetInstance(), &extAddr);
+    SuccessOrExit(error = otPlatCpGetIeeeEui64(extAddr.m8));
 
     eui64 = ConvertOpenThreadUint64(extAddr.m8);
 
@@ -1529,9 +1581,11 @@ exit:
 
 otError DBusThreadObject::GetOtRcpVersionHandler(DBusMessageIter &aIter)
 {
-    auto        threadHelper = mNcp->GetThreadHelper();
+    // auto        threadHelper = mNcp->GetThreadHelper();
     otError     error        = OT_ERROR_NONE;
-    std::string version      = otGetRadioVersionString(threadHelper->GetInstance());
+    // std::string version      = otGetRadioVersionString(threadHelper->GetInstance());
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    std::string version = radioSpinel.GetVersion();
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, version) == OTBR_ERROR_NONE, error = OT_ERROR_FAILED);
 
@@ -1552,8 +1606,9 @@ exit:
 otError DBusThreadObject::GetRadioSpinelMetricsHandler(DBusMessageIter &aIter)
 {
     otError              error = OT_ERROR_NONE;
-    RadioSpinelMetrics   radioSpinelMetrics;
-    otRadioSpinelMetrics otRadioSpinelMetrics = *otSysGetRadioSpinelMetrics();
+    RadioSpinelMetrics   radioSpinelMetrics = RadioSpinelMetrics();
+
+    otRadioSpinelMetrics otRadioSpinelMetrics = *otPlatCpGetRadioSpinelMetrics();
 
     radioSpinelMetrics.mRcpTimeoutCount         = otRadioSpinelMetrics.mRcpTimeoutCount;
     radioSpinelMetrics.mRcpUnexpectedResetCount = otRadioSpinelMetrics.mRcpUnexpectedResetCount;
@@ -1570,8 +1625,9 @@ exit:
 otError DBusThreadObject::GetRcpInterfaceMetricsHandler(DBusMessageIter &aIter)
 {
     otError               error = OT_ERROR_NONE;
-    RcpInterfaceMetrics   rcpInterfaceMetrics;
-    otRcpInterfaceMetrics otRcpInterfaceMetrics = *otSysGetRcpInterfaceMetrics();
+    RcpInterfaceMetrics   rcpInterfaceMetrics = RcpInterfaceMetrics();
+    // TODO
+    otRcpInterfaceMetrics otRcpInterfaceMetrics = *otPlatCpGetNcpInterfaceMetrics();
 
     rcpInterfaceMetrics.mRcpInterfaceType             = otRcpInterfaceMetrics.mRcpInterfaceType;
     rcpInterfaceMetrics.mTransferredFrameCount        = otRcpInterfaceMetrics.mTransferredFrameCount;
@@ -1605,9 +1661,10 @@ otError DBusThreadObject::GetRadioCoexMetrics(DBusMessageIter &aIter)
 {
     otError            error = OT_ERROR_NONE;
     otRadioCoexMetrics otRadioCoexMetrics;
-    RadioCoexMetrics   radioCoexMetrics;
+    RadioCoexMetrics   radioCoexMetrics = RadioCoexMetrics();
 
-    SuccessOrExit(error = otPlatRadioGetCoexMetrics(mNcp->GetInstance(), &otRadioCoexMetrics));
+    // TODO
+    SuccessOrExit(error = otPlatCpGetCoexMetrics(mNcp->GetInstance(), &otRadioCoexMetrics));
 
     radioCoexMetrics.mNumGrantGlitch                     = otRadioCoexMetrics.mNumGrantGlitch;
     radioCoexMetrics.mNumTxRequest                       = otRadioCoexMetrics.mNumTxRequest;
@@ -1639,26 +1696,26 @@ exit:
 otError DBusThreadObject::GetBorderRoutingCountersHandler(DBusMessageIter &aIter)
 {
 #if OTBR_ENABLE_BORDER_ROUTING_COUNTERS
-    auto                           threadHelper = mNcp->GetThreadHelper();
-    auto                           instance     = threadHelper->GetInstance();
+    // auto                           threadHelper = mNcp->GetThreadHelper();
+    // auto                           instance     = threadHelper->GetInstance();
     otError                        error        = OT_ERROR_NONE;
-    BorderRoutingCounters          borderRoutingCounters;
-    const otBorderRoutingCounters *otBorderRoutingCounters = otIp6GetBorderRoutingCounters(instance);
+    BorderRoutingCounters          borderRoutingCounters = BorderRoutingCounters();
+    // const otBorderRoutingCounters *otBorderRoutingCounters = otIp6GetBorderRoutingCounters(instance);
 
-    borderRoutingCounters.mInboundUnicast.mPackets    = otBorderRoutingCounters->mInboundUnicast.mPackets;
-    borderRoutingCounters.mInboundUnicast.mBytes      = otBorderRoutingCounters->mInboundUnicast.mBytes;
-    borderRoutingCounters.mInboundMulticast.mPackets  = otBorderRoutingCounters->mInboundMulticast.mPackets;
-    borderRoutingCounters.mInboundMulticast.mBytes    = otBorderRoutingCounters->mInboundMulticast.mBytes;
-    borderRoutingCounters.mOutboundUnicast.mPackets   = otBorderRoutingCounters->mOutboundUnicast.mPackets;
-    borderRoutingCounters.mOutboundUnicast.mBytes     = otBorderRoutingCounters->mOutboundUnicast.mBytes;
-    borderRoutingCounters.mOutboundMulticast.mPackets = otBorderRoutingCounters->mOutboundMulticast.mPackets;
-    borderRoutingCounters.mOutboundMulticast.mBytes   = otBorderRoutingCounters->mOutboundMulticast.mBytes;
-    borderRoutingCounters.mRaRx                       = otBorderRoutingCounters->mRaRx;
-    borderRoutingCounters.mRaTxSuccess                = otBorderRoutingCounters->mRaTxSuccess;
-    borderRoutingCounters.mRaTxFailure                = otBorderRoutingCounters->mRaTxFailure;
-    borderRoutingCounters.mRsRx                       = otBorderRoutingCounters->mRsRx;
-    borderRoutingCounters.mRsTxSuccess                = otBorderRoutingCounters->mRsTxSuccess;
-    borderRoutingCounters.mRsTxFailure                = otBorderRoutingCounters->mRsTxFailure;
+    // borderRoutingCounters.mInboundUnicast.mPackets    = otBorderRoutingCounters->mInboundUnicast.mPackets;
+    // borderRoutingCounters.mInboundUnicast.mBytes      = otBorderRoutingCounters->mInboundUnicast.mBytes;
+    // borderRoutingCounters.mInboundMulticast.mPackets  = otBorderRoutingCounters->mInboundMulticast.mPackets;
+    // borderRoutingCounters.mInboundMulticast.mBytes    = otBorderRoutingCounters->mInboundMulticast.mBytes;
+    // borderRoutingCounters.mOutboundUnicast.mPackets   = otBorderRoutingCounters->mOutboundUnicast.mPackets;
+    // borderRoutingCounters.mOutboundUnicast.mBytes     = otBorderRoutingCounters->mOutboundUnicast.mBytes;
+    // borderRoutingCounters.mOutboundMulticast.mPackets = otBorderRoutingCounters->mOutboundMulticast.mPackets;
+    // borderRoutingCounters.mOutboundMulticast.mBytes   = otBorderRoutingCounters->mOutboundMulticast.mBytes;
+    // borderRoutingCounters.mRaRx                       = otBorderRoutingCounters->mRaRx;
+    // borderRoutingCounters.mRaTxSuccess                = otBorderRoutingCounters->mRaTxSuccess;
+    // borderRoutingCounters.mRaTxFailure                = otBorderRoutingCounters->mRaTxFailure;
+    // borderRoutingCounters.mRsRx                       = otBorderRoutingCounters->mRsRx;
+    // borderRoutingCounters.mRsTxSuccess                = otBorderRoutingCounters->mRsTxSuccess;
+    // borderRoutingCounters.mRsTxFailure                = otBorderRoutingCounters->mRsTxFailure;
 
     VerifyOrExit(DBusMessageEncodeToVariant(&aIter, borderRoutingCounters) == OTBR_ERROR_NONE,
                  error = OT_ERROR_INVALID_ARGS);
@@ -1686,7 +1743,8 @@ void DBusThreadObject::LeaveNetworkHandler(DBusRequest &aRequest)
     mNcp->GetThreadHelper()->DetachGracefully([aRequest, this](otError error) mutable {
         SuccessOrExit(error);
         mPublisher->Stop();
-        SuccessOrExit(error = otInstanceErasePersistentInfo(mNcp->GetThreadHelper()->GetInstance()));
+        // TODO: ErasePersistentInfo
+        // SuccessOrExit(error = otInstanceErasePersistentInfo(mNcp->GetThreadHelper()->GetInstance()));
 
     exit:
         aRequest.ReplyOtResult(error);

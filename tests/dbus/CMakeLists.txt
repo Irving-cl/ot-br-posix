@@ -56,3 +56,12 @@ set_tests_properties(dbus-client PROPERTIES
     ENVIRONMENT "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR};CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR};PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
 )
 set_tests_properties(dbus-client PROPERTIES TIMEOUT 1000)
+
+add_test(
+    NAME dbus-client-offload
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/test-client-offload
+)
+set_tests_properties(dbus-client-offload PROPERTIES
+    ENVIRONMENT "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR};CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR};PROJECT_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+)
+set_tests_properties(dbus-client-offload PROPERTIES TIMEOUT 1000)

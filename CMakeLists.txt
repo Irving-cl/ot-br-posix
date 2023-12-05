@@ -86,6 +86,7 @@ message(STATUS "Version: ${OTBR_VERSION}")
 target_include_directories(otbr-config INTERFACE
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src
+    ${PROJECT_SOURCE_DIR}/third_party/openthread/repo/src/core
 )
 target_compile_definitions(otbr-config INTERFACE
     "OTBR_VENDOR_NAME=\"${OTBR_VENDOR_NAME}\""

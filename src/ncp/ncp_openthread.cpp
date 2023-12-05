@@ -49,6 +49,7 @@
 #include <openthread/platform/misc.h>
 #include <openthread/platform/radio.h>
 #include <openthread/platform/settings.h>
+#include <openthread/platform/offload.h>
 
 #include "common/code_utils.hpp"
 #include "common/logging.hpp"
@@ -167,6 +168,7 @@ otLogLevel ControllerOpenThread::ConvertToOtLogLevel(otbrLogLevel aLevel)
 {
     otLogLevel level;
 
+    otLogInfoPlat("ConvertToLogLevel, aLevel:%d", aLevel);
     switch (aLevel)
     {
     case OTBR_LOG_EMERG:
@@ -210,13 +212,14 @@ void ControllerOpenThread::Init(void)
     FeatureFlagList featureFlagList;
 #endif
 
+    if (level < OT_LOG_LEVEL_INFO) level = OT_LOG_LEVEL_INFO;
     VerifyOrExit(otLoggingSetLevel(level) == OT_ERROR_NONE, error = OTBR_ERROR_OPENTHREAD);
 
     mInstance = otSysInit(&mConfig);
     assert(mInstance != nullptr);
 
     {
-        otError result = otSetStateChangedCallback(mInstance, &ControllerOpenThread::HandleStateChanged, this);
+        otError result = otPlatCpSetStateChangedCallback(&ControllerOpenThread::HandleStateChanged, this);
 
         agent::ThreadHelper::LogOpenThreadResult("Set state callback", result);
         VerifyOrExit(result == OT_ERROR_NONE, error = OTBR_ERROR_OPENTHREAD);
@@ -324,10 +327,10 @@ void ControllerOpenThread::Process(const MainloopContext &aMainloop)
 
     otSysMainloopProcess(mInstance, &aMainloop);
 
-    if (IsAutoAttachEnabled() && mThreadHelper->TryResumeNetwork() == OT_ERROR_NONE)
-    {
-        DisableAutoAttach();
-    }
+    // if (IsAutoAttachEnabled() && mThreadHelper->TryResumeNetwork() == OT_ERROR_NONE)
+    // {
+    //     DisableAutoAttach();
+    // }
 }
 
 bool ControllerOpenThread::IsAutoAttachEnabled(void)
@@ -359,10 +362,14 @@ void ControllerOpenThread::Reset(void)
 {
     gPlatResetReason = OT_PLAT_RESET_REASON_SOFTWARE;
 
+    otbrLogLevel level = otbrLogGetLevel();
+    otLogInfoPlat("Reset, loglevel:%u", level);
     otSysDeinit();
     mInstance = nullptr;
+    otLogInfoPlat("Reset, after otSysDeinit");
 
     Init();
+
     for (auto &handler : mResetHandlers)
     {
         handler();

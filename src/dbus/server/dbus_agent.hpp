@@ -64,6 +64,8 @@ public:
      */
     DBusAgent(otbr::Ncp::ControllerOpenThread &aNcp, Mdns::Publisher &aPublisher);
 
+    DBusAgent(otbr::Ncp::ControllerOpenThread &aNcp);
+
     /**
      * This method initializes the dbus agent.
      *
@@ -89,7 +91,9 @@ private:
     std::unique_ptr<DBusThreadObject> mThreadObject;
     UniqueDBusConnection              mConnection;
     otbr::Ncp::ControllerOpenThread  &mNcp;
+#if OTBR_ENABLE_BORDER_AGENT
     Mdns::Publisher                  &mPublisher;
+#endif
 
     /**
      * This map is used to track DBusWatch-es.

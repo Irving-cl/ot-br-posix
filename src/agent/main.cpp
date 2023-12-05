@@ -45,6 +45,7 @@
 #include <unistd.h>
 
 #include <openthread/logging.h>
+#include <openthread/platform/offload.h>
 #include <openthread/platform/radio.h>
 
 #if __ANDROID__ && OTBR_CONFIG_ANDROID_PROPERTY_ENABLE
@@ -177,7 +178,8 @@ static void PrintRadioVersionAndExit(const std::vector<const char *> &aRadioUrls
 
     ncpOpenThread.Init();
 
-    radioVersion = otPlatRadioGetVersionString(ncpOpenThread.GetInstance());
+    // radioVersion = otPlatRadioGetVersionString(ncpOpenThread.GetInstance());
+    radioVersion = otPlatCpGetVersionString(ncpOpenThread.GetInstance());
     otbrLogNotice("Radio version: %s", radioVersion);
     printf("%s\n", radioVersion);
 

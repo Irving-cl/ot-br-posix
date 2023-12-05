@@ -44,12 +44,23 @@ namespace DBus {
 const struct timeval           DBusAgent::kPollTimeout = {0, 0};
 constexpr std::chrono::seconds DBusAgent::kDBusWaitAllowance;
 
+#if OTBR_ENABLE_BORDER_AGENT
 DBusAgent::DBusAgent(otbr::Ncp::ControllerOpenThread &aNcp, Mdns::Publisher &aPublisher)
     : mInterfaceName(aNcp.GetInterfaceName())
     , mNcp(aNcp)
     , mPublisher(aPublisher)
 {
+    (void)aPublisher;
 }
+#else // OTBR_ENABLE_BORDER_AGENT
+
+DBusAgent::DBusAgent(otbr::Ncp::ControllerOpenThread &aNcp)
+    : mInterfaceName(aNcp.GetInterfaceName())
+    , mNcp(aNcp)
+{
+
+}
+#endif // OTBR_ENABLE_BORDER_AGENT
 
 void DBusAgent::Init(void)
 {
@@ -65,8 +76,13 @@ void DBusAgent::Init(void)
 
     VerifyOrDie(mConnection != nullptr, "Failed to get DBus connection");
 
+#if OTBR_ENABLE_BORDER_AGENT
     mThreadObject =
         std::unique_ptr<DBusThreadObject>(new DBusThreadObject(mConnection.get(), mInterfaceName, &mNcp, &mPublisher));
+#else
+    mThreadObject =
+        std::unique_ptr<DBusThreadObject>(new DBusThreadObject(mConnection.get(), mInterfaceName, &mNcp, nullptr));
+#endif
     error = mThreadObject->Init();
     VerifyOrDie(error == OTBR_ERROR_NONE, "Failed to initialize DBus Agent");
 }

@@ -37,7 +37,8 @@ add_library(otbr-utils
     steering_data.cpp
     string_utils.cpp
     system_utils.cpp
-    thread_helper.cpp
+    #thread_helper.cpp
+    thread_helper_offload.cpp
     thread_helper.hpp
 )
 

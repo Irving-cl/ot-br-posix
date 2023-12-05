@@ -1,5 +1,5 @@
 /*
- *    Copyright (c) 2017, The OpenThread Authors.
+ *    Copyright (c) 2023, The OpenThread Authors.
  *    All rights reserved.
  *
  *    Redistribution and use in source and binary forms, with or without
@@ -28,7 +28,7 @@
 
 /**
  * @file
- *   The file implements the Thread border agent.
+ *   The file implements the Thread border agent, offload.
  */
 
 #define OTBR_LOG_TAG "BA"
@@ -253,30 +253,35 @@ static uint64_t ConvertTimestampToUint64(const otTimestamp &aTimestamp)
 #if OTBR_ENABLE_BORDER_ROUTING
 void AppendOmrTxtEntry(otInstance &aInstance, Mdns::Publisher::TxtList &aTxtList)
 {
-    otIp6Prefix       omrPrefix;
-    otRoutePreference preference;
+    // TODO: Implement GetFavoredOmrPrefix
+    // otIp6Prefix       omrPrefix;
+    // otRoutePreference preference;
 
-    if (OT_ERROR_NONE == otBorderRoutingGetFavoredOmrPrefix(&aInstance, &omrPrefix, &preference))
-    {
-        std::vector<uint8_t> omrData;
+    // if (OT_ERROR_NONE == otBorderRoutingGetFavoredOmrPrefix(&aInstance, &omrPrefix, &preference))
+    // {
+    //     std::vector<uint8_t> omrData;
 
-        omrData.reserve(1 + OT_IP6_PREFIX_SIZE);
-        omrData.push_back(omrPrefix.mLength);
-        std::copy(omrPrefix.mPrefix.mFields.m8, omrPrefix.mPrefix.mFields.m8 + (omrPrefix.mLength + 7) / 8,
-                  std::back_inserter(omrData));
-        aTxtList.emplace_back("omr", omrData.data(), omrData.size());
-    }
+    //     omrData.reserve(1 + OT_IP6_PREFIX_SIZE);
+    //     omrData.push_back(omrPrefix.mLength);
+    //     std::copy(omrPrefix.mPrefix.mFields.m8, omrPrefix.mPrefix.mFields.m8 + (omrPrefix.mLength + 7) / 8,
+    //               std::back_inserter(omrData));
+    //     aTxtList.emplace_back("omr", omrData.data(), omrData.size());
+    // }
+    (void)aInstance;
+    (void)aTxtList;
 }
 #endif
 
 StateBitmap GetStateBitmap(otInstance &aInstance)
 {
     StateBitmap state;
+    otDeviceRole role = ot::Posix::GetSpinel().GetDeviceRoleCached();
+    (void)aInstance;
 
     state.mConnectionMode = kConnectionModePskc;
     state.mAvailability   = kAvailabilityHigh;
 
-    switch (otThreadGetDeviceRole(&aInstance))
+    switch (role)
     {
     case OT_DEVICE_ROLE_DISABLED:
         state.mThreadIfStatus = kThreadIfStatusNotInitialized;
@@ -317,10 +322,13 @@ void AppendBbrTxtEntries(otInstance &aInstance, StateBitmap aState, Mdns::Publis
 
 void AppendActiveTimestampTxtEntry(otInstance &aInstance, Mdns::Publisher::TxtList &aTxtList)
 {
+    OT_UNUSED_VARIABLE(aInstance);
+
     otError              error;
     otOperationalDataset activeDataset;
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
 
-    if ((error = otDatasetGetActive(&aInstance, &activeDataset)) != OT_ERROR_NONE)
+    if ((error = radioSpinel.DatasetGetActive(&activeDataset)) != OT_ERROR_NONE)
     {
         otbrLogWarning("Failed to get active dataset: %s", otThreadErrorToString(error));
     }
@@ -366,15 +374,23 @@ void BorderAgent::PublishMeshCopService(void)
     StateBitmap              state;
     uint32_t                 stateUint32;
     otInstance              *instance    = mNcp.GetInstance();
-    const otExtendedPanId   *extPanId    = otThreadGetExtendedPanId(instance);
-    const otExtAddress      *extAddr     = otLinkGetExtendedAddress(instance);
-    const char              *networkName = otThreadGetNetworkName(instance);
+    ot::Spinel::RadioSpinel &radioSpinel = ot::Posix::GetSpinel();
+    otExtendedPanId         extPanId;
+    otNetworkName           networkName;
+    otExtAddress            extAddr;
+
     Mdns::Publisher::TxtList txtList{{"rv", "1"}};
     Mdns::Publisher::TxtData txtData;
     int                      port;
     otbrError                error;
+    otError                  err;
+
+    radioSpinel.ThreadGetExtendedPanIdCached(&extPanId);
+    radioSpinel.ThreadGetNetworkNameCached(&networkName);
+    err = radioSpinel.LinkGetExtendedAddress(&extAddr);
 
     OTBR_UNUSED_VARIABLE(error);
+    (void)err;
 
     otbrLogInfo("Publish meshcop service %s.%s.local.", mServiceInstanceName.c_str(), kBorderAgentServiceType);
 
@@ -397,12 +413,12 @@ void BorderAgent::PublishMeshCopService(void)
 
     txtList.emplace_back("vn", kVendorName);
     txtList.emplace_back("mn", kProductName);
-    txtList.emplace_back("nn", networkName);
-    txtList.emplace_back("xp", extPanId->m8, sizeof(extPanId->m8));
+    txtList.emplace_back("nn", networkName.m8);
+    txtList.emplace_back("xp", extPanId.m8, sizeof(extPanId.m8));
     txtList.emplace_back("tv", mNcp.GetThreadVersion());
 
     // "xa" stands for Extended MAC Address (64-bit) of the Thread Interface of the Border Agent.
-    txtList.emplace_back("xa", extAddr->m8, sizeof(extAddr->m8));
+    txtList.emplace_back("xa", extAddr.m8, sizeof(extAddr.m8));
 
     state       = GetStateBitmap(*instance);
     stateUint32 = htobe32(state.ToUint32());
@@ -413,7 +429,7 @@ void BorderAgent::PublishMeshCopService(void)
         uint32_t partitionId;
 
         AppendActiveTimestampTxtEntry(*instance, txtList);
-        partitionId = otThreadGetPartitionId(instance);
+        radioSpinel.ThreadGetPartitionId(partitionId);
         txtList.emplace_back("pt", reinterpret_cast<uint8_t *>(&partitionId), sizeof(partitionId));
     }
 
@@ -427,11 +443,11 @@ void BorderAgent::PublishMeshCopService(void)
     AppendVendorTxtEntries(mMeshCopTxtUpdate, txtList);
 #endif
 
-    if (otBorderAgentGetState(instance) != OT_BORDER_AGENT_STATE_STOPPED)
-    {
-        port = otBorderAgentGetUdpPort(instance);
-    }
-    else
+    // if (otBorderAgentGetState(instance) != OT_BORDER_AGENT_STATE_STOPPED)
+    // {
+    //     port = otBorderAgentGetUdpPort(instance);
+    // }
+    // else
     {
         // When thread interface is not active, the border agent is not started, thus it's not listening to any port and
         // not handling requests. In such situation, we use a dummy port number for publishing the MeshCoP service to
@@ -484,6 +500,7 @@ void BorderAgent::UpdateMeshCopService(void)
 {
     VerifyOrExit(mPublisher->IsStarted(), mPublisher->Start());
     PublishMeshCopService();
+
 exit:
     return;
 }
@@ -491,6 +508,7 @@ exit:
 #if OTBR_ENABLE_DBUS_SERVER
 void BorderAgent::HandleUpdateVendorMeshCoPTxtEntries(std::map<std::string, std::vector<uint8_t>> aUpdate)
 {
+    otbrLogInfo("HandleUpdateVendorMeshCopTxtEntries");
     mMeshCopTxtUpdate = std::move(aUpdate);
     UpdateMeshCopService();
 }
@@ -498,6 +516,7 @@ void BorderAgent::HandleUpdateVendorMeshCoPTxtEntries(std::map<std::string, std:
 
 void BorderAgent::HandleThreadStateChanged(otChangedFlags aFlags)
 {
+    otbrLogInfo("HandleThreadStateChanged");
     VerifyOrExit(mPublisher != nullptr);
 
     if (aFlags & OT_CHANGED_THREAD_ROLE)
@@ -516,20 +535,22 @@ exit:
 
 bool BorderAgent::IsThreadStarted(void) const
 {
-    otDeviceRole role = otThreadGetDeviceRole(mNcp.GetInstance());
+    otDeviceRole role = ot::Posix::GetSpinel().GetDeviceRoleCached();
 
     return role == OT_DEVICE_ROLE_CHILD || role == OT_DEVICE_ROLE_ROUTER || role == OT_DEVICE_ROLE_LEADER;
 }
 
 std::string BorderAgent::BaseServiceInstanceName() const
 {
-    const otExtAddress *extAddress = otLinkGetExtendedAddress(mNcp.GetInstance());
+    otExtAddress extAddress;
+    ot::Posix::GetSpinel().LinkGetExtendedAddress(&extAddress);
+
     std::stringstream   ss;
 
     ss << kBorderAgentServiceInstanceName << " #";
     ss << std::uppercase << std::hex << std::setfill('0');
-    ss << std::setw(2) << static_cast<int>(extAddress->m8[6]);
-    ss << std::setw(2) << static_cast<int>(extAddress->m8[7]);
+    ss << std::setw(2) << static_cast<int>(extAddress.m8[6]);
+    ss << std::setw(2) << static_cast<int>(extAddress.m8[7]);
     return ss.str();
 }
 

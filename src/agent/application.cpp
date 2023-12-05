@@ -73,8 +73,15 @@ Application::Application(const std::string               &aInterfaceName,
 #if OTBR_ENABLE_REST_SERVER
     , mRestWebServer(mNcp, aRestListenAddress, aRestListenPort)
 #endif
-#if OTBR_ENABLE_DBUS_SERVER && OTBR_ENABLE_BORDER_AGENT
+// #if OTBR_ENABLE_DBUS_SERVER && OTBR_ENABLE_BORDER_AGENT
+//     , mDBusAgent(mNcp, mBorderAgent.GetPublisher())
+// #endif
+#if OTBR_ENABLE_DBUS_SERVER
+#if OTBR_ENABLE_BORDER_AGENT
     , mDBusAgent(mNcp, mBorderAgent.GetPublisher())
+#else
+    , mDBusAgent(mNcp)
+#endif
 #endif
 #if OTBR_ENABLE_VENDOR_SERVER
     , mVendorServer(vendor::VendorServer::newInstance(*this))
@@ -88,8 +95,12 @@ void Application::Init(void)
 {
     mNcp.Init();
 
+    otbrLogInfo("end of NCP::init");
+
 #if OTBR_ENABLE_BORDER_AGENT
     mBorderAgent.Init();
+
+    otbrLogInfo("end of BorderAgent::init");
 #endif
 #if OTBR_ENABLE_BACKBONE_ROUTER
     mBackboneAgent.Init();
@@ -102,10 +113,13 @@ void Application::Init(void)
 #endif
 #if OTBR_ENABLE_DBUS_SERVER
     mDBusAgent.Init();
+    otbrLogInfo("end of DbusAgent::init");
 #endif
 #if OTBR_ENABLE_VENDOR_SERVER
     mVendorServer->Init();
 #endif
+
+    otbrLogInfo("end of application::init");
 }
 
 void Application::Deinit(void)

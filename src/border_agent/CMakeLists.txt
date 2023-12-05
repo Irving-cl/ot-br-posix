@@ -27,7 +27,8 @@
 #
 
 add_library(otbr-border-agent
-    border_agent.cpp
+    #border_agent.cpp
+    border_agent_offload.cpp
     border_agent.hpp
 )
 
