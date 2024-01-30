@@ -185,6 +185,7 @@ void BorderAgent::Start(void)
 {
     otbrError error = OTBR_ERROR_NONE;
 
+    otbrLogInfo("!!!Border Agent Start");
     SuccessOrExit(error = mPublisher->Start());
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY
     mAdvertisingProxy.Start();

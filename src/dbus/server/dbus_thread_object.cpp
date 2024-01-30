@@ -1353,6 +1353,7 @@ exit:
 otError DBusThreadObject::GetSrpServerInfoHandler(DBusMessageIter &aIter)
 {
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY
+/*
     auto                               threadHelper = mNcp->GetThreadHelper();
     auto                               instance     = threadHelper->GetInstance();
     otError                            error        = OT_ERROR_NONE;
@@ -1412,6 +1413,9 @@ otError DBusThreadObject::GetSrpServerInfoHandler(DBusMessageIter &aIter)
 
 exit:
     return error;
+    */
+    OTBR_UNUSED_VARIABLE(aIter);
+    return OT_ERROR_NOT_IMPLEMENTED;
 #else  // OTBR_ENABLE_SRP_ADVERTISING_PROXY
     OTBR_UNUSED_VARIABLE(aIter);
 

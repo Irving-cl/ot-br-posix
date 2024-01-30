@@ -40,6 +40,7 @@
 #include <openthread/dnssd_server.h>
 #include <openthread/logging.h>
 #include <openthread/nat64.h>
+#include <openthread/offload.h>
 #include <openthread/srp_server.h>
 #include <openthread/tasklet.h>
 #include <openthread/thread.h>
@@ -123,6 +124,12 @@ otbrLogLevel ControllerOpenThread::ConvertToOtbrLogLevel(otLogLevel aLogLevel)
     }
 
     return otbrLogLevel;
+}
+
+void ControllerOpenThread::SrpServerSetServiceUpdateHandler(otSrpServerServiceUpdateHandler aServiceHandler,
+                                      void                           *aContext)
+{
+    otOffloadSrpServerSetServiceUpdateHandler(mInstance, aServiceHandler, aContext);
 }
 
 #if OTBR_ENABLE_FEATURE_FLAGS
@@ -236,7 +243,7 @@ void ControllerOpenThread::Init(void)
     // Routing Manager. SRP server automatically starts when bi-directional connectivity is ready.
     otSrpServerSetAutoEnableMode(mInstance, /* aEnabled */ true);
 #else
-    otSrpServerSetEnabled(mInstance, /* aEnabled */ true);
+    otPlatSrpServerSetEnabled(true);
 #endif
 #endif
 

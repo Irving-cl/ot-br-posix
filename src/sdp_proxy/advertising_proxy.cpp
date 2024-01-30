@@ -49,6 +49,9 @@
 #include "common/dns_utils.hpp"
 #include "common/logging.hpp"
 
+#include <openthread/logging.h>
+#include <openthread/platform/offload.h>
+
 namespace otbr {
 
 static otError OtbrErrorToOtError(otbrError aError)
@@ -98,12 +101,15 @@ AdvertisingProxy::AdvertisingProxy(Ncp::ControllerOpenThread &aNcp, Mdns::Publis
     , mPublisher(aPublisher)
 {
     mNcp.RegisterResetHandler(
-        [this]() { otSrpServerSetServiceUpdateHandler(GetInstance(), AdvertisingHandler, this); });
+        [this]() {
+            // TODO: May need changes
+        });
 }
 
 otbrError AdvertisingProxy::Start(void)
 {
-    otSrpServerSetServiceUpdateHandler(GetInstance(), AdvertisingHandler, this);
+    otPlatSrpServerSetEnabled(true);
+    mNcp.SrpServerSetServiceUpdateHandler(&AdvertisingHandler, this);
 
     otbrLogInfo("Started");
 
@@ -116,10 +122,11 @@ void AdvertisingProxy::Stop()
     // TODO: handle this case gracefully.
 
     // Stop receiving SRP server events.
-    if (GetInstance() != nullptr)
-    {
-        otSrpServerSetServiceUpdateHandler(GetInstance(), nullptr, nullptr);
-    }
+    //if (GetInstance() != nullptr)
+    //{
+        //otSrpServerSetServiceUpdateHandler(GetInstance(), nullptr, nullptr);
+    //}
+    // TODO: Stop to receive update
 
     otbrLogInfo("Stopped");
 }
@@ -150,7 +157,7 @@ void AdvertisingProxy::AdvertisingHandler(otSrpServerServiceUpdateId aId,
     if (error != OTBR_ERROR_NONE || update->mCallbackCount == 0)
     {
         mOutstandingUpdates.pop_back();
-        otSrpServerHandleServiceUpdateResult(GetInstance(), aId, OtbrErrorToOtError(error));
+        otPlatSrpServerHandleServiceUpdateResult(aId, OtbrErrorToOtError(error));
     }
 }
 
@@ -169,7 +176,7 @@ void AdvertisingProxy::OnMdnsPublishResult(otSrpServerServiceUpdateId aUpdateId,
             // elements may be added to `otSrpServerHandleServiceUpdateResult` and
             // the iterator will be invalidated.
             mOutstandingUpdates.erase(update);
-            otSrpServerHandleServiceUpdateResult(GetInstance(), aUpdateId, OtbrErrorToOtError(aError));
+            otPlatSrpServerHandleServiceUpdateResult(aUpdateId, OtbrErrorToOtError(aError));
         }
         else
         {
@@ -184,6 +191,10 @@ std::vector<Ip6Address> AdvertisingProxy::GetEligibleAddresses(const otIp6Addres
                                                                uint8_t             aHostAddressNum)
 {
     std::vector<Ip6Address> addresses;
+    (void)aHostAddresses;
+    (void)aHostAddressNum;
+    // TODO: Implement GetMeshLocalEid
+    /*
     const otIp6Address     *meshLocalEid = otThreadGetMeshLocalEid(GetInstance());
 
     addresses.reserve(aHostAddressNum);
@@ -201,6 +212,7 @@ std::vector<Ip6Address> AdvertisingProxy::GetEligibleAddresses(const otIp6Addres
         }
         addresses.push_back(address);
     }
+    */
 
     return addresses;
 }
@@ -212,10 +224,12 @@ void AdvertisingProxy::PublishAllHostsAndServices(void)
     VerifyOrExit(mPublisher.IsStarted(), mPublisher.Start());
 
     otbrLogInfo("Publish all hosts and services");
-    while ((host = otSrpServerGetNextHost(GetInstance(), host)))
-    {
-        PublishHostAndItsServices(host, nullptr);
-    }
+    (void)host;
+    // TODO: Implement
+    //while ((host = otSrpServerGetNextHost(GetInstance(), host)))
+    //{
+        //PublishHostAndItsServices(host, nullptr);
+    //}
 
 exit:
     return;
@@ -237,6 +251,7 @@ otbrError AdvertisingProxy::PublishHostAndItsServices(const otSrpServerHost *aHo
     otbrLogInfo("Advertise SRP service updates: host=%s", fullHostName.c_str());
 
     SuccessOrExit(error = SplitFullHostName(fullHostName, hostName, hostDomain));
+
     hostAddresses = otSrpServerHostGetAddresses(aHost, &hostAddressNum);
     hostDeleted   = otSrpServerHostIsDeleted(aHost);
 
@@ -254,6 +269,7 @@ otbrError AdvertisingProxy::PublishHostAndItsServices(const otSrpServerHost *aHo
     }
 
     service = nullptr;
+
     while ((service = otSrpServerHostGetNextService(aHost, service)) != nullptr)
     {
         std::string fullServiceName = otSrpServerServiceGetInstanceName(service);
@@ -302,7 +318,14 @@ otbrError AdvertisingProxy::PublishHostAndItsServices(const otSrpServerHost *aHo
         // TODO: select a preferred address or advertise all addresses from SRP client.
         otbrLogDebug("Publish SRP host '%s'", fullHostName.c_str());
 
-        addresses = GetEligibleAddresses(hostAddresses, hostAddressNum);
+        // NOTE: hostAddresses don't need to be filtered again because it's already filtered by NCP
+        addresses.reserve(hostAddressNum);
+        for (size_t i = 0; i < hostAddressNum; ++i)
+        {
+            Ip6Address address(hostAddresses[i].mFields.m8);
+            addresses.push_back(address);
+        }
+
         mPublisher.PublishHost(
             hostName, addresses,
             Mdns::Publisher::ResultCallback([this, hasUpdate, updateId, fullHostName](otbrError aError) {
@@ -343,7 +366,10 @@ Mdns::Publisher::TxtData AdvertisingProxy::MakeTxtData(const otSrpServerService 
     const uint8_t *data;
     uint16_t       length = 0;
 
-    data = otSrpServerServiceGetTxtData(aSrpService, &length);
+    // TODO
+    //data = otSrpServerServiceGetTxtData(aSrpService, &length);
+    data = nullptr;
+    (void)aSrpService;
 
     return Mdns::Publisher::TxtData(data, data + length);
 }
@@ -352,17 +378,19 @@ Mdns::Publisher::SubTypeList AdvertisingProxy::MakeSubTypeList(const otSrpServer
 {
     Mdns::Publisher::SubTypeList subTypeList;
 
-    for (uint16_t index = 0;; index++)
-    {
-        const char *subTypeName = otSrpServerServiceGetSubTypeServiceNameAt(aSrpService, index);
-        char        subLabel[OT_DNS_MAX_LABEL_SIZE];
+    (void)aSrpService;
+    // TODO
+    //for (uint16_t index = 0;; index++)
+    //{
+        //const char *subTypeName = otSrpServerServiceGetSubTypeServiceNameAt(aSrpService, index);
+        //char        subLabel[OT_DNS_MAX_LABEL_SIZE];
 
-        VerifyOrExit(subTypeName != nullptr);
-        SuccessOrExit(otSrpServerParseSubTypeServiceName(subTypeName, subLabel, sizeof(subLabel)));
-        subTypeList.emplace_back(subLabel);
-    }
+        //VerifyOrExit(subTypeName != nullptr);
+        //SuccessOrExit(otSrpServerParseSubTypeServiceName(subTypeName, subLabel, sizeof(subLabel)));
+        //subTypeList.emplace_back(subLabel);
+    //}
 
-exit:
+//exit:
     return subTypeList;
 }
 

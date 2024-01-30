@@ -42,6 +42,7 @@
 #include <assert.h>
 
 #include <openthread/backbone_router_ftd.h>
+#include <openthread/srp_server.h>
 #include <openthread/cli.h>
 #include <openthread/instance.h>
 #include <openthread/openthread-system.h>
@@ -190,6 +191,9 @@ public:
         return mAppliedFeatureFlagListBytes;
     }
 #endif
+
+    void SrpServerSetServiceUpdateHandler(otSrpServerServiceUpdateHandler aServiceHandler,
+                                          void                           *aContext);
 
     ~ControllerOpenThread(void) override;
 
