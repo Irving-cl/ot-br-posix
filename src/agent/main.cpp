@@ -56,7 +56,7 @@
 #include "common/logging.hpp"
 #include "common/mainloop.hpp"
 #include "common/types.hpp"
-#include "ncp/ncp_openthread.hpp"
+#include "ncp/controller_openthread_rcp.hpp"
 
 static const char kDefaultInterfaceName[] = "wpan0";
 
@@ -176,9 +176,10 @@ static otbrLogLevel GetDefaultLogLevel(void)
 
 static void PrintRadioVersionAndExit(const std::vector<const char *> &aRadioUrls)
 {
-    otbr::Ncp::ControllerOpenThread ncpOpenThread{/* aInterfaceName */ "", aRadioUrls, /* aBackboneInterfaceName */ "",
-                                                  /* aDryRun */ true, /* aEnableAutoAttach */ false};
-    const char                     *radioVersion;
+    otbr::Ncp::ControllerOpenThreadRcp ncpOpenThread{/* aInterfaceName */ "", aRadioUrls,
+                                                     /* aBackboneInterfaceName */ "",
+                                                     /* aDryRun */ true, /* aEnableAutoAttach */ false};
+    const char                        *radioVersion;
 
     ncpOpenThread.Init();
 
@@ -279,7 +280,7 @@ static int realmain(int argc, char *argv[])
 
     otbrLogInit(argv[0], logLevel, verbose, syslogDisable);
     otbrLogNotice("Running %s", OTBR_PACKAGE_VERSION);
-    otbrLogNotice("Thread version: %s", otbr::Ncp::ControllerOpenThread::GetThreadVersion());
+    otbrLogNotice("Thread version: %s", otbr::Ncp::ControllerOpenThreadRcp::GetThreadVersion());
     otbrLogNotice("Thread interface: %s", interfaceName);
 
     if (backboneInterfaceNames.empty())

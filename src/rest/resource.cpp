@@ -121,9 +121,9 @@ static std::string GetHttpStatus(HttpStatusCode aErrorCode)
     return httpStatus;
 }
 
-Resource::Resource(ControllerOpenThread *aNcp)
+Resource::Resource(ControllerOpenThreadRcp *aCtrlr)
     : mInstance(nullptr)
-    , mNcp(aNcp)
+    , mCtrlr(aCtrlr)
 {
     // Resource Handler
     mResourceMap.emplace(OT_REST_RESOURCE_PATH_DIAGNOSTICS, &Resource::Diagnostic);
@@ -146,7 +146,7 @@ Resource::Resource(ControllerOpenThread *aNcp)
 
 void Resource::Init(void)
 {
-    mInstance = mNcp->GetThreadHelper()->GetInstance();
+    mInstance = mCtrlr->GetThreadHelper()->GetInstance();
 }
 
 void Resource::Handle(Request &aRequest, Response &aResponse) const
@@ -262,9 +262,9 @@ void Resource::DeleteNodeInfo(Response &aResponse) const
     otbrError   error = OTBR_ERROR_NONE;
     std::string errorCode;
 
-    VerifyOrExit(mNcp->GetThreadHelper()->Detach() == OT_ERROR_NONE, error = OTBR_ERROR_INVALID_STATE);
+    VerifyOrExit(mCtrlr->GetThreadHelper()->Detach() == OT_ERROR_NONE, error = OTBR_ERROR_INVALID_STATE);
     VerifyOrExit(otInstanceErasePersistentInfo(mInstance) == OT_ERROR_NONE, error = OTBR_ERROR_REST);
-    mNcp->Reset();
+    mCtrlr->Reset();
 
 exit:
     if (error == OTBR_ERROR_NONE)

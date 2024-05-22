@@ -48,7 +48,7 @@
 #include "dbus/server/dbus_object.hpp"
 #include "dbus/server/dbus_thread_object.hpp"
 
-#include "ncp/ncp_openthread.hpp"
+#include "ncp/controller_openthread_rcp.hpp"
 
 namespace otbr {
 namespace DBus {
@@ -59,10 +59,10 @@ public:
     /**
      * The constructor of dbus agent.
      *
-     * @param[in] aNcp  A reference to the NCP controller.
+     * @param[in] aCtrlr  A reference to the NCP controller.
      *
      */
-    DBusAgent(otbr::Ncp::ControllerOpenThread &aNcp, Mdns::Publisher &aPublisher);
+    DBusAgent(otbr::Ncp::ControllerOpenThreadRcp &aCtrlr, Mdns::Publisher &aPublisher);
 
     /**
      * This method initializes the dbus agent.
@@ -85,11 +85,11 @@ private:
 
     static const struct timeval kPollTimeout;
 
-    std::string                       mInterfaceName;
-    std::unique_ptr<DBusThreadObject> mThreadObject;
-    UniqueDBusConnection              mConnection;
-    otbr::Ncp::ControllerOpenThread  &mNcp;
-    Mdns::Publisher                  &mPublisher;
+    std::string                         mInterfaceName;
+    std::unique_ptr<DBusThreadObject>   mThreadObject;
+    UniqueDBusConnection                mConnection;
+    otbr::Ncp::ControllerOpenThreadRcp &mCtrlr;
+    Mdns::Publisher                    &mPublisher;
 
     /**
      * This map is used to track DBusWatch-es.

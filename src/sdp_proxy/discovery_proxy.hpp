@@ -48,7 +48,7 @@
 
 #include "common/dns_utils.hpp"
 #include "mdns/mdns.hpp"
-#include "ncp/ncp_openthread.hpp"
+#include "ncp/controller_openthread_rcp.hpp"
 
 namespace otbr {
 namespace Dnssd {
@@ -63,11 +63,11 @@ public:
     /**
      * This constructor initializes the Discovery Proxy instance.
      *
-     * @param[in] aNcp        A reference to the OpenThread Controller instance.
+     * @param[in] aCtrlr        A reference to the OpenThread Controller instance.
      * @param[in] aPublisher  A reference to the mDNS Publisher.
      *
      */
-    explicit DiscoveryProxy(Ncp::ControllerOpenThread &aNcp, Mdns::Publisher &aPublisher);
+    explicit DiscoveryProxy(Ncp::ControllerOpenThreadRcp &aCtrlr, Mdns::Publisher &aPublisher);
 
     /**
      * This method enables/disables the Discovery Proxy.
@@ -112,10 +112,10 @@ private:
     void Stop(void);
     bool IsEnabled(void) const { return mIsEnabled; }
 
-    Ncp::ControllerOpenThread &mNcp;
-    Mdns::Publisher           &mMdnsPublisher;
-    bool                       mIsEnabled;
-    uint64_t                   mSubscriberId = 0;
+    Ncp::ControllerOpenThreadRcp &mCtrlr;
+    Mdns::Publisher              &mMdnsPublisher;
+    bool                          mIsEnabled;
+    uint64_t                      mSubscriberId = 0;
 };
 
 } // namespace Dnssd
