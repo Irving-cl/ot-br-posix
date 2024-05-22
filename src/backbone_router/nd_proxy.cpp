@@ -111,8 +111,10 @@ exit:
     otbrLogResult(error, "NdProxyManager: %s", __FUNCTION__);
 }
 
-void NdProxyManager::Init(void)
+void NdProxyManager::Init(Ncp::ControllerOpenThreadRcp *aCtrlr)
 {
+    mCtrlr = aCtrlr;
+
     mBackboneIfIndex = if_nametoindex(mBackboneInterfaceName.c_str());
     VerifyOrDie(mBackboneIfIndex > 0, "if_nametoindex failed");
 }
@@ -311,7 +313,7 @@ void NdProxyManager::SendNeighborAdvertisement(const Ip6Address &aTarget, const 
     otbrError                  error = OTBR_ERROR_NONE;
     otBackboneRouterNdProxyInfo aNdProxyInfo;
 
-    VerifyOrExit(otBackboneRouterGetNdProxyInfo(mCtrlr.GetInstance(), reinterpret_cast<const otIp6Address *>(&aTarget),
+    VerifyOrExit(otBackboneRouterGetNdProxyInfo(mCtrlr->GetInstance(), reinterpret_cast<const otIp6Address *>(&aTarget),
                                                 &aNdProxyInfo) == OT_ERROR_NONE,
                  error = OTBR_ERROR_OPENTHREAD);
 

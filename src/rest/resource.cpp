@@ -121,9 +121,9 @@ static std::string GetHttpStatus(HttpStatusCode aErrorCode)
     return httpStatus;
 }
 
-Resource::Resource(ControllerOpenThreadRcp *aCtrlr)
+Resource::Resource(void)
     : mInstance(nullptr)
-    , mCtrlr(aCtrlr)
+    , mCtrlr(nullptr)
 {
     // Resource Handler
     mResourceMap.emplace(OT_REST_RESOURCE_PATH_DIAGNOSTICS, &Resource::Diagnostic);
@@ -144,8 +144,10 @@ Resource::Resource(ControllerOpenThreadRcp *aCtrlr)
     mResourceCallbackMap.emplace(OT_REST_RESOURCE_PATH_DIAGNOSTICS, &Resource::HandleDiagnosticCallback);
 }
 
-void Resource::Init(void)
+void Resource::Init(ControllerOpenThreadRcp *aCtrlr)
 {
+    mCtrlr = aCtrlr;
+
     mInstance = mCtrlr->GetThreadHelper()->GetInstance();
 }
 

@@ -66,11 +66,19 @@ public:
     /**
      * This constructor initializes the TrelDnssd instance.
      *
-     * @param[in] aCtrlr        A reference to the OpenThread Controller instance.
      * @param[in] aPublisher  A reference to the mDNS Publisher.
      *
      */
-    explicit TrelDnssd(Ncp::ControllerOpenThreadRcp &aCtrlr, Mdns::Publisher &aPublisher);
+    explicit TrelDnssd(Mdns::Publisher &aPublisher);
+
+    /**
+     * This method Initializes the Trel Dnssd by setting the Controller OpenThread
+     * instance.
+     *
+     * @param[in] aCtrlr  A pointer to the ControllerOpenThreadRcp.
+     *
+     */
+    void Init(Ncp::ControllerOpenThreadRcp *aCtrlr);
 
     /**
      * This method initializes the TrelDnssd instance.
@@ -177,7 +185,7 @@ private:
     uint16_t CountDuplicatePeers(const Peer &aPeer);
 
     Mdns::Publisher              &mPublisher;
-    Ncp::ControllerOpenThreadRcp &mCtrlr;
+    Ncp::ControllerOpenThreadRcp *mCtrlr;
     TaskRunner                    mTaskRunner;
     std::string                   mTrelNetif;
     uint32_t                      mTrelNetifIndex = 0;

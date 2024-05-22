@@ -66,17 +66,16 @@ public:
     /**
      * The constructor initializes the resource handler instance.
      *
-     * @param[in] aCtrlr  A pointer to the Thread controller.
-     *
      */
-    Resource(ControllerOpenThreadRcp *aCtrlr);
+    Resource(void);
 
     /**
      * This method initialize the Resource handler.
      *
+     * @param[in] aCtrlr  A pointer to the Thread controller.
      *
      */
-    void Init(void);
+    void Init(ControllerOpenThreadRcp *aCtrlr);
 
     /**
      * This method is the main entry of resource handler, which find corresponding handler according to request url

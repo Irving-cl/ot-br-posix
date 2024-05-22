@@ -58,13 +58,18 @@ static inline bool DnsLabelsEqual(const std::string &aLabel1, const std::string 
     return StringUtils::EqualCaseInsensitive(aLabel1, aLabel2);
 }
 
-DiscoveryProxy::DiscoveryProxy(Ncp::ControllerOpenThreadRcp &aCtrlr, Mdns::Publisher &aPublisher)
-    : mCtrlr(aCtrlr)
+DiscoveryProxy::DiscoveryProxy(Mdns::Publisher &aPublisher)
+    : mCtrlr(nullptr)
     , mMdnsPublisher(aPublisher)
     , mIsEnabled(false)
 {
-    mCtrlr.RegisterResetHandler([this]() {
-        otDnssdQuerySetCallbacks(mCtrlr.GetInstance(), &DiscoveryProxy::OnDiscoveryProxySubscribe,
+}
+
+void DiscoveryProxy::Init(Ncp::ControllerOpenThreadRcp *aCtrlr)
+{
+    mCtrlr = aCtrlr;
+    mCtrlr->RegisterResetHandler([this]() {
+        otDnssdQuerySetCallbacks(mCtrlr->GetInstance(), &DiscoveryProxy::OnDiscoveryProxySubscribe,
                                  &DiscoveryProxy::OnDiscoveryProxyUnsubscribe, this);
     });
 }
@@ -89,7 +94,7 @@ void DiscoveryProxy::Start(void)
 {
     assert(mSubscriberId == 0);
 
-    otDnssdQuerySetCallbacks(mCtrlr.GetInstance(), &DiscoveryProxy::OnDiscoveryProxySubscribe,
+    otDnssdQuerySetCallbacks(mCtrlr->GetInstance(), &DiscoveryProxy::OnDiscoveryProxySubscribe,
                              &DiscoveryProxy::OnDiscoveryProxyUnsubscribe, this);
 
     mSubscriberId = mMdnsPublisher.AddSubscriptionCallbacks(
@@ -109,7 +114,7 @@ void DiscoveryProxy::Start(void)
 
 void DiscoveryProxy::Stop(void)
 {
-    otDnssdQuerySetCallbacks(mCtrlr.GetInstance(), nullptr, nullptr, nullptr);
+    otDnssdQuerySetCallbacks(mCtrlr->GetInstance(), nullptr, nullptr, nullptr);
 
     if (mSubscriberId > 0)
     {
@@ -200,7 +205,7 @@ void DiscoveryProxy::OnServiceDiscovered(const std::string                      
     instanceInfo.mTxtData   = aInstanceInfo.mTxtData.data();
     instanceInfo.mTtl       = CapTtl(aInstanceInfo.mTtl);
 
-    while ((query = otDnssdGetNextQuery(mCtrlr.GetInstance(), query)) != nullptr)
+    while ((query = otDnssdGetNextQuery(mCtrlr->GetInstance(), query)) != nullptr)
     {
         std::string      instanceName;
         std::string      serviceName;
@@ -238,7 +243,7 @@ void DiscoveryProxy::OnServiceDiscovered(const std::string                      
             instanceInfo.mFullName = instanceFullName.c_str();
             instanceInfo.mHostName = translatedHostName.c_str();
 
-            otDnssdQueryHandleDiscoveredServiceInstance(mCtrlr.GetInstance(), serviceFullName.c_str(), &instanceInfo);
+            otDnssdQueryHandleDiscoveredServiceInstance(mCtrlr->GetInstance(), serviceFullName.c_str(), &instanceInfo);
         }
     }
 }
@@ -270,7 +275,7 @@ void DiscoveryProxy::OnHostDiscovered(const std::string                         
 
     hostInfo.mTtl = CapTtl(aHostInfo.mTtl);
 
-    while ((query = otDnssdGetNextQuery(mCtrlr.GetInstance(), query)) != nullptr)
+    while ((query = otDnssdGetNextQuery(mCtrlr->GetInstance(), query)) != nullptr)
     {
         std::string      hostName, domain;
         char             queryName[OT_DNS_MAX_NAME_SIZE];
@@ -295,7 +300,7 @@ void DiscoveryProxy::OnHostDiscovered(const std::string                         
         {
             std::string hostFullName = TranslateDomain(resolvedHostName, domain);
 
-            otDnssdQueryHandleDiscoveredHost(mCtrlr.GetInstance(), hostFullName.c_str(), &hostInfo);
+            otDnssdQueryHandleDiscoveredHost(mCtrlr->GetInstance(), hostFullName.c_str(), &hostInfo);
         }
     }
 }
@@ -321,7 +326,7 @@ int DiscoveryProxy::GetServiceSubscriptionCount(const DnsNameInfo &aNameInfo) co
     const otDnssdQuery *query = nullptr;
     int                 count = 0;
 
-    while ((query = otDnssdGetNextQuery(mCtrlr.GetInstance(), query)) != nullptr)
+    while ((query = otDnssdGetNextQuery(mCtrlr->GetInstance(), query)) != nullptr)
     {
         char        queryName[OT_DNS_MAX_NAME_SIZE];
         DnsNameInfo queryInfo;

@@ -49,8 +49,6 @@ const struct timeval Application::kPollTimeout = {10, 0};
 
 Application::Application(const std::string               &aInterfaceName,
                          const std::vector<const char *> &aBackboneInterfaceNames,
-                         const std::vector<const char *> &aRadioUrls,
-                         bool                             aEnableAutoAttach,
                          const std::string               &aRestListenAddress,
                          int                              aRestListenPort)
     : mInterfaceName(aInterfaceName)
@@ -60,33 +58,33 @@ Application::Application(const std::string               &aInterfaceName,
 #else
     , mBackboneInterfaceName(aBackboneInterfaceNames.empty() ? "" : aBackboneInterfaceNames.front())
 #endif
-    , mCtrlr(mInterfaceName.c_str(), aRadioUrls, mBackboneInterfaceName, /* aDryRun */ false, aEnableAutoAttach)
+    , mCtrlr(nullptr)
 #if OTBR_ENABLE_MDNS
     , mPublisher(Mdns::Publisher::Create([this](Mdns::Publisher::State aState) { this->HandleMdnsState(aState); }))
 #endif
 #if OTBR_ENABLE_BORDER_AGENT
-    , mBorderAgent(mCtrlr, *mPublisher)
+    , mBorderAgent(*mPublisher)
 #endif
 #if OTBR_ENABLE_BACKBONE_ROUTER
-    , mBackboneAgent(mCtrlr, aInterfaceName, mBackboneInterfaceName)
+    , mBackboneAgent(aInterfaceName, mBackboneInterfaceName)
 #endif
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY
-    , mAdvertisingProxy(mCtrlr, *mPublisher)
+    , mAdvertisingProxy(*mPublisher)
 #endif
 #if OTBR_ENABLE_DNSSD_DISCOVERY_PROXY
-    , mDiscoveryProxy(mCtrlr, *mPublisher)
+    , mDiscoveryProxy(*mPublisher)
 #endif
 #if OTBR_ENABLE_TREL
-    , mTrelDnssd(mCtrlr, *mPublisher)
+    , mTrelDnssd(*mPublisher)
 #endif
 #if OTBR_ENABLE_OPENWRT
-    , mUbusAgent(mCtrlr)
+    , mUbusAgent()
 #endif
 #if OTBR_ENABLE_REST_SERVER
-    , mRestWebServer(mCtrlr, aRestListenAddress, aRestListenPort)
+    , mRestWebServer(aRestListenAddress, aRestListenPort)
 #endif
 #if OTBR_ENABLE_DBUS_SERVER && OTBR_ENABLE_BORDER_AGENT
-    , mDBusAgent(mCtrlr, *mPublisher)
+    , mDBusAgent(*mPublisher)
 #endif
 #if OTBR_ENABLE_VENDOR_SERVER
     , mVendorServer(vendor::VendorServer::newInstance(*this))
@@ -96,14 +94,18 @@ Application::Application(const std::string               &aInterfaceName,
     OTBR_UNUSED_VARIABLE(aRestListenPort);
 }
 
-void Application::Init(void)
+void Application::Init(const std::vector<const char *> &aRadioUrls, bool aEnableAutoAttach)
 {
-    mCtrlr.Init();
+    mCtrlr = new Ncp::ControllerOpenThreadRcp(mInterfaceName.c_str(), aRadioUrls, mBackboneInterfaceName, false,
+                                              aEnableAutoAttach);
+
+    mCtrlr->Init();
 
 #if OTBR_ENABLE_MDNS
     mPublisher->Start();
 #endif
 #if OTBR_ENABLE_BORDER_AGENT
+    mBorderAgent.Init(mCtrlr);
 // This is for delaying publishing the MeshCoP service until the correct
 // vendor name and OUI etc. are correctly set by BorderAgent::SetMeshCopServiceValues()
 #if OTBR_STOP_BORDER_AGENT_ON_INIT
@@ -113,22 +115,27 @@ void Application::Init(void)
 #endif
 #endif
 #if OTBR_ENABLE_BACKBONE_ROUTER
-    mBackboneAgent.Init();
+    mBackboneAgent.Init(mCtrlr);
 #endif
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY
+    mAdvertisingProxy.Init(mCtrlr);
     mAdvertisingProxy.SetEnabled(true);
 #endif
 #if OTBR_ENABLE_DNSSD_DISCOVERY_PROXY
+    mDiscoveryProxy.Init(mCtrlr);
     mDiscoveryProxy.SetEnabled(true);
 #endif
+#if OTBR_ENABLE_TREL
+    mTrelDnssd.Init(mCtrlr);
+#endif
 #if OTBR_ENABLE_OPENWRT
-    mUbusAgent.Init();
+    mUbusAgent.Init(mCtrlr);
 #endif
 #if OTBR_ENABLE_REST_SERVER
-    mRestWebServer.Init();
+    mRestWebServer.Init(mCtrlr);
 #endif
 #if OTBR_ENABLE_DBUS_SERVER
-    mDBusAgent.Init();
+    mDBusAgent.Init(mCtrlr);
 #endif
 #if OTBR_ENABLE_VENDOR_SERVER
     mVendorServer->Init();
@@ -150,7 +157,8 @@ void Application::Deinit(void)
     mPublisher->Stop();
 #endif
 
-    mCtrlr.Deinit();
+    mCtrlr->Deinit();
+    delete mCtrlr;
 }
 
 otbrError Application::Run(void)

@@ -81,11 +81,16 @@ namespace otbr {
 
 namespace TrelDnssd {
 
-TrelDnssd::TrelDnssd(Ncp::ControllerOpenThreadRcp &aCtrlr, Mdns::Publisher &aPublisher)
+TrelDnssd::TrelDnssd(Mdns::Publisher &aPublisher)
     : mPublisher(aPublisher)
-    , mCtrlr(aCtrlr)
+    , mCtrlr(nullptr)
 {
     sTrelDnssd = this;
+}
+
+void TrelDnssd::Init(Ncp::ControllerOpenThreadRcp *aCtrlr)
+{
+    mCtrlr = aCtrlr;
 }
 
 void TrelDnssd::Initialize(std::string aTrelNetif)
@@ -229,7 +234,7 @@ exit:
 
 std::string TrelDnssd::GetTrelInstanceName(void)
 {
-    const otExtAddress *extaddr = otLinkGetExtendedAddress(mCtrlr.GetInstance());
+    const otExtAddress *extaddr = otLinkGetExtendedAddress(mCtrlr->GetInstance());
     std::string         name;
     char                nameBuf[sizeof(otExtAddress) * 2 + 1];
 
@@ -331,7 +336,7 @@ void TrelDnssd::OnTrelServiceInstanceAdded(const Mdns::Publisher::DiscoveredInst
 
         VerifyOrExit(peer.mValid, otbrLogWarning("Peer %s is invalid", aInstanceInfo.mName.c_str()));
 
-        otPlatTrelHandleDiscoveredPeerInfo(mCtrlr.GetInstance(), &peerInfo);
+        otPlatTrelHandleDiscoveredPeerInfo(mCtrlr->GetInstance(), &peerInfo);
 
         mPeers.emplace(instanceName, peer);
         CheckPeersNumLimit();
@@ -392,7 +397,7 @@ void TrelDnssd::NotifyRemovePeer(const Peer &aPeer)
     peerInfo.mTxtLength = aPeer.mTxtData.size();
     peerInfo.mSockAddr  = aPeer.mSockAddr;
 
-    otPlatTrelHandleDiscoveredPeerInfo(mCtrlr.GetInstance(), &peerInfo);
+    otPlatTrelHandleDiscoveredPeerInfo(mCtrlr->GetInstance(), &peerInfo);
 }
 
 void TrelDnssd::RemoveAllPeers(void)

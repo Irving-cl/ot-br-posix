@@ -59,10 +59,8 @@ public:
     /**
      * The constructor to initialize a REST server.
      *
-     * @param[in] aCtrlr  A reference to the Thread controller.
-     *
      */
-    RestWebServer(ControllerOpenThreadRcp &aCtrlr, const std::string &aRestListenAddress, int aRestListenPort);
+    RestWebServer(const std::string &aRestListenAddress, int aRestListenPort);
 
     /**
      * The destructor destroys the server instance.
@@ -73,8 +71,10 @@ public:
     /**
      * This method initializes the REST server.
      *
+     * @param[in] aCtrlr  A pointer to the Thread controller.
+     *
      */
-    void Init(void);
+    void Init(ControllerOpenThreadRcp *aCtrlr);
 
     void Update(MainloopContext &aMainloop) override;
     void Process(const MainloopContext &aMainloop) override;

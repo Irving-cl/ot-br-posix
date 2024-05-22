@@ -59,11 +59,18 @@ public:
     /**
      * This constructor initializes the Advertising Proxy object.
      *
-     * @param[in] aCtrlr        A reference to the NCP controller.
      * @param[in] aPublisher  A reference to the mDNS publisher.
      *
      */
-    explicit AdvertisingProxy(Ncp::ControllerOpenThreadRcp &aCtrlr, Mdns::Publisher &aPublisher);
+    explicit AdvertisingProxy(Mdns::Publisher &aPublisher);
+
+    /**
+     * Initialize the Border Agent.
+     *
+     * @param[in] aCtrlr  A pointer to the ControllerOpenThreadRcp.
+     *
+     */
+    void Init(Ncp::ControllerOpenThreadRcp *aCtrlr);
 
     /**
      * This method enables/disables the Advertising Proxy.
@@ -126,10 +133,10 @@ private:
      */
     otbrError PublishHostAndItsServices(const otSrpServerHost *aHost, OutstandingUpdate *aUpdate);
 
-    otInstance *GetInstance(void) { return mCtrlr.GetInstance(); }
+    otInstance *GetInstance(void) { return mCtrlr->GetInstance(); }
 
     // A reference to the NCP controller, has no ownership.
-    Ncp::ControllerOpenThreadRcp &mCtrlr;
+    Ncp::ControllerOpenThreadRcp *mCtrlr;
 
     // A reference to the mDNS publisher, has no ownership.
     Mdns::Publisher &mPublisher;
