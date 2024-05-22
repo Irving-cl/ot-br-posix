@@ -42,7 +42,7 @@
 #include <openthread/border_router.h>
 
 #include "common/api_strings.hpp"
-#include "ncp/ncp_openthread.hpp"
+#include "ncp/controller_openthread_rcp.hpp"
 #include "openthread/dataset.h"
 #include "openthread/dataset_ftd.h"
 #include "rest/json.hpp"
@@ -50,7 +50,7 @@
 #include "rest/response.hpp"
 #include "utils/thread_helper.hpp"
 
-using otbr::Ncp::ControllerOpenThread;
+using otbr::Ncp::ControllerOpenThreadRcp;
 using std::chrono::steady_clock;
 
 namespace otbr {
@@ -66,10 +66,10 @@ public:
     /**
      * The constructor initializes the resource handler instance.
      *
-     * @param[in] aNcp  A pointer to the NCP controller.
+     * @param[in] aCtrlr  A pointer to the Thread controller.
      *
      */
-    Resource(ControllerOpenThread *aNcp);
+    Resource(ControllerOpenThreadRcp *aCtrlr);
 
     /**
      * This method initialize the Resource handler.
@@ -160,8 +160,8 @@ private:
                                           void                *aContext);
     void        DiagnosticResponseHandler(otError aError, const otMessage *aMessage, const otMessageInfo *aMessageInfo);
 
-    otInstance           *mInstance;
-    ControllerOpenThread *mNcp;
+    otInstance              *mInstance;
+    ControllerOpenThreadRcp *mCtrlr;
 
     std::unordered_map<std::string, ResourceHandler>         mResourceMap;
     std::unordered_map<std::string, ResourceCallbackHandler> mResourceCallbackMap;

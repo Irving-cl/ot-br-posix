@@ -68,7 +68,7 @@
 #include "common/code_utils.hpp"
 #include "common/logging.hpp"
 #include "common/tlv.hpp"
-#include "ncp/ncp_openthread.hpp"
+#include "ncp/controller_openthread_rcp.hpp"
 
 namespace otbr {
 namespace agent {
@@ -227,9 +227,9 @@ void CopyMdnsResponseCounters(const MdnsResponseCounters &from, threadnetwork::T
 #endif // OTBR_ENABLE_TELEMETRY_DATA_API
 } // namespace
 
-ThreadHelper::ThreadHelper(otInstance *aInstance, otbr::Ncp::ControllerOpenThread *aNcp)
+ThreadHelper::ThreadHelper(otInstance *aInstance, otbr::Ncp::ControllerOpenThreadRcp *aCtrlr)
     : mInstance(aInstance)
-    , mNcp(aNcp)
+    , mCtrlr(aCtrlr)
 {
 #if OTBR_ENABLE_TELEMETRY_DATA_API && (OTBR_ENABLE_NAT64 || OTBR_ENABLE_DHCP6_PD)
     otError error;
@@ -855,7 +855,7 @@ otError ThreadHelper::PermitUnsecureJoin(uint16_t aPort, uint32_t aSeconds)
 
         ++mUnsecurePortRefCounter[aPort];
 
-        mNcp->PostTimerTask(delay, [this, aPort]() {
+        mCtrlr->PostTimerTask(delay, [this, aPort]() {
             assert(mUnsecurePortRefCounter.find(aPort) != mUnsecurePortRefCounter.end());
             assert(mUnsecurePortRefCounter[aPort] > 0);
 

@@ -55,7 +55,7 @@
 #include "common/code_utils.hpp"
 #include "common/mainloop.hpp"
 #include "common/types.hpp"
-#include "ncp/ncp_openthread.hpp"
+#include "ncp/controller_openthread_rcp.hpp"
 
 namespace otbr {
 namespace BackboneRouter {
@@ -80,8 +80,8 @@ public:
      * This constructor initializes a NdProxyManager instance.
      *
      */
-    explicit NdProxyManager(otbr::Ncp::ControllerOpenThread &aNcp, std::string aBackboneInterfaceName)
-        : mNcp(aNcp)
+    explicit NdProxyManager(otbr::Ncp::ControllerOpenThreadRcp &aCtrlr, std::string aBackboneInterfaceName)
+        : mCtrlr(aCtrlr)
         , mBackboneInterfaceName(std::move(aBackboneInterfaceName))
         , mIcmp6RawSock(-1)
         , mUnicastNsQueueSock(-1)
@@ -153,16 +153,16 @@ private:
                                     void                *aContext);
     int HandleNetfilterQueue(struct nfq_q_handle *aNfQueueHandler, struct nfgenmsg *aNfMsg, struct nfq_data *aNfData);
 
-    otbr::Ncp::ControllerOpenThread &mNcp;
-    std::string                      mBackboneInterfaceName;
-    std::set<Ip6Address>             mNdProxySet;
-    uint32_t                         mBackboneIfIndex;
-    int                              mIcmp6RawSock;
-    int                              mUnicastNsQueueSock;
-    struct nfq_handle               *mNfqHandler;      ///< A pointer to an NFQUEUE handler.
-    struct nfq_q_handle             *mNfqQueueHandler; ///< A pointer to a newly created queue.
-    MacAddress                       mMacAddress;
-    Ip6Prefix                        mDomainPrefix;
+    otbr::Ncp::ControllerOpenThreadRcp &mCtrlr;
+    std::string                         mBackboneInterfaceName;
+    std::set<Ip6Address>                mNdProxySet;
+    uint32_t                            mBackboneIfIndex;
+    int                                 mIcmp6RawSock;
+    int                                 mUnicastNsQueueSock;
+    struct nfq_handle                  *mNfqHandler;      ///< A pointer to an NFQUEUE handler.
+    struct nfq_q_handle                *mNfqQueueHandler; ///< A pointer to a newly created queue.
+    MacAddress                          mMacAddress;
+    Ip6Prefix                           mDomainPrefix;
 };
 
 /**

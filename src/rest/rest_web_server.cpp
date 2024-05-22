@@ -47,8 +47,10 @@ namespace rest {
 // Maximum number of connection a server support at the same time.
 static const uint32_t kMaxServeNum = 500;
 
-RestWebServer::RestWebServer(ControllerOpenThread &aNcp, const std::string &aRestListenAddress, int aRestListenPort)
-    : mResource(Resource(&aNcp))
+RestWebServer::RestWebServer(ControllerOpenThreadRcp &aCtrlr,
+                             const std::string       &aRestListenAddress,
+                             int                      aRestListenPort)
+    : mResource(Resource(&aCtrlr))
     , mListenFd(-1)
 {
     mAddress.sin6_family = AF_INET6;

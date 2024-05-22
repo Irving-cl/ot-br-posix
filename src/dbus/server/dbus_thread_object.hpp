@@ -42,7 +42,7 @@
 
 #include "dbus/server/dbus_object.hpp"
 #include "mdns/mdns.hpp"
-#include "ncp/ncp_openthread.hpp"
+#include "ncp/controller_openthread_rcp.hpp"
 
 namespace otbr {
 namespace DBus {
@@ -68,14 +68,14 @@ public:
      *
      * @param[in] aConnection     The dbus connection.
      * @param[in] aInterfaceName  The dbus interface name.
-     * @param[in] aNcp            The ncp controller
+     * @param[in] aCtrlr          The Thread controller
      * @param[in] aPublisher      The Mdns::Publisher
      *
      */
-    DBusThreadObject(DBusConnection                  *aConnection,
-                     const std::string               &aInterfaceName,
-                     otbr::Ncp::ControllerOpenThread *aNcp,
-                     Mdns::Publisher                 *aPublisher);
+    DBusThreadObject(DBusConnection                     *aConnection,
+                     const std::string                  &aInterfaceName,
+                     otbr::Ncp::ControllerOpenThreadRcp *aCtrlr,
+                     Mdns::Publisher                    *aPublisher);
 
     otbrError Init(void) override;
 
@@ -178,7 +178,7 @@ private:
     void ReplyScanResult(DBusRequest &aRequest, otError aError, const std::vector<otActiveScanResult> &aResult);
     void ReplyEnergyScanResult(DBusRequest &aRequest, otError aError, const std::vector<otEnergyScanResult> &aResult);
 
-    otbr::Ncp::ControllerOpenThread                     *mNcp;
+    otbr::Ncp::ControllerOpenThreadRcp                  *mCtrlr;
     std::unordered_map<std::string, PropertyHandlerType> mGetPropertyHandlers;
     otbr::Mdns::Publisher                               *mPublisher;
 };

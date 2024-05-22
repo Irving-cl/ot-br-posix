@@ -44,7 +44,7 @@
 #include <openthread/thread_ftd.h>
 
 #include "common/logging.hpp"
-#include "ncp/ncp_openthread.hpp"
+#include "ncp/controller_openthread_rcp.hpp"
 
 namespace otbr {
 namespace ubus {
@@ -58,12 +58,12 @@ const static int PANID_LENGTH      = 10;
 const static int XPANID_LENGTH     = 64;
 const static int NETWORKKEY_LENGTH = 64;
 
-UbusServer::UbusServer(Ncp::ControllerOpenThread *aController, std::mutex *aMutex)
+UbusServer::UbusServer(Ncp::ControllerOpenThreadRcp *aController, std::mutex *aMutex)
     : mIfFinishScan(false)
     , mContext(nullptr)
     , mSockPath(nullptr)
     , mController(aController)
-    , mNcpThreadMutex(aMutex)
+    , mCtrlrMutex(aMutex)
     , mSecond(0)
 {
     memset(&mNetworkdataBuf, 0, sizeof(mNetworkdataBuf));
@@ -78,7 +78,7 @@ UbusServer &UbusServer::GetInstance(void)
     return *sUbusServerInstance;
 }
 
-void UbusServer::Initialize(Ncp::ControllerOpenThread *aController, std::mutex *aMutex)
+void UbusServer::Initialize(Ncp::ControllerOpenThreadRcp *aController, std::mutex *aMutex)
 {
     sUbusServerInstance = new UbusServer(aController, aMutex);
 }
@@ -229,11 +229,11 @@ void UbusServer::ProcessScan(void)
     uint32_t scanChannels = 0;
     uint16_t scanDuration = 0;
 
-    mNcpThreadMutex->lock();
+    mCtrlrMutex->lock();
     SuccessOrExit(error = otLinkActiveScan(mController->GetInstance(), scanChannels, scanDuration,
                                            &UbusServer::HandleActiveScanResult, this));
 exit:
-    mNcpThreadMutex->unlock();
+    mCtrlrMutex->unlock();
     return;
 }
 
@@ -679,7 +679,7 @@ int UbusServer::UbusLeaveHandlerDetail(struct ubus_context      *aContext,
     uint64_t eventNum;
     ssize_t  retval;
 
-    mNcpThreadMutex->lock();
+    mCtrlrMutex->lock();
     otInstanceFactoryReset(mController->GetInstance());
 
     eventNum = 1;
@@ -693,7 +693,7 @@ int UbusServer::UbusLeaveHandlerDetail(struct ubus_context      *aContext,
     blob_buf_init(&mBuf, 0);
 
 exit:
-    mNcpThreadMutex->unlock();
+    mCtrlrMutex->unlock();
     AppendResult(error, aContext, aRequest);
     return 0;
 }
@@ -714,19 +714,19 @@ int UbusServer::UbusThreadHandler(struct ubus_context      *aContext,
 
     if (!strcmp(aAction, "start"))
     {
-        mNcpThreadMutex->lock();
+        mCtrlrMutex->lock();
         SuccessOrExit(error = otIp6SetEnabled(mController->GetInstance(), true));
         SuccessOrExit(error = otThreadSetEnabled(mController->GetInstance(), true));
     }
     else if (!strcmp(aAction, "stop"))
     {
-        mNcpThreadMutex->lock();
+        mCtrlrMutex->lock();
         SuccessOrExit(error = otThreadSetEnabled(mController->GetInstance(), false));
         SuccessOrExit(error = otIp6SetEnabled(mController->GetInstance(), false));
     }
 
 exit:
-    mNcpThreadMutex->unlock();
+    mCtrlrMutex->unlock();
     AppendResult(error, aContext, aRequest);
     return 0;
 }
@@ -750,7 +750,7 @@ int UbusServer::UbusParentHandlerDetail(struct ubus_context      *aContext,
 
     blob_buf_init(&mBuf, 0);
 
-    mNcpThreadMutex->lock();
+    mCtrlrMutex->lock();
     SuccessOrExit(error = otThreadGetParentInfo(mController->GetInstance(), &parentInfo));
 
     jsonArray = blobmsg_open_array(&mBuf, "parent_list");
@@ -772,7 +772,7 @@ int UbusServer::UbusParentHandlerDetail(struct ubus_context      *aContext,
     blobmsg_close_array(&mBuf, jsonArray);
 
 exit:
-    mNcpThreadMutex->unlock();
+    mCtrlrMutex->unlock();
     AppendResult(error, aContext, aRequest);
     return error;
 }
@@ -799,7 +799,7 @@ int UbusServer::UbusNeighborHandlerDetail(struct ubus_context      *aContext,
 
     sJsonUri = blobmsg_open_array(&mBuf, "neighbor_list");
 
-    mNcpThreadMutex->lock();
+    mCtrlrMutex->lock();
     while (otThreadGetNextNeighborInfo(mController->GetInstance(), &iterator, &neighborInfo) == OT_ERROR_NONE)
     {
         jsonList = blobmsg_open_table(&mBuf, nullptr);
@@ -847,7 +847,7 @@ int UbusServer::UbusNeighborHandlerDetail(struct ubus_context      *aContext,
 
     blobmsg_close_array(&mBuf, sJsonUri);
 
-    mNcpThreadMutex->unlock();
+    mCtrlrMutex->unlock();
 
     AppendResult(error, aContext, aRequest);
     return 0;
@@ -944,7 +944,7 @@ int UbusServer::UbusCommissioner(struct ubus_context      *aContext,
 
     otError error = OT_ERROR_NONE;
 
-    mNcpThreadMutex->lock();
+    mCtrlrMutex->lock();
 
     if (!strcmp(aAction, "start"))
     {
@@ -1010,7 +1010,7 @@ int UbusServer::UbusCommissioner(struct ubus_context      *aContext,
     }
 
 exit:
-    mNcpThreadMutex->unlock();
+    mCtrlrMutex->unlock();
     blob_buf_init(&mBuf, 0);
     AppendResult(error, aContext, aRequest);
     return 0;
@@ -1087,7 +1087,7 @@ int UbusServer::UbusGetInformation(struct ubus_context      *aContext,
 
     blob_buf_init(&mBuf, 0);
 
-    mNcpThreadMutex->lock();
+    mCtrlrMutex->lock();
     if (!strcmp(aAction, "networkname"))
         blobmsg_add_string(&mBuf, "NetworkName", otThreadGetNetworkName(mController->GetInstance()));
     else if (!strcmp(aAction, "interfacename"))
@@ -1304,7 +1304,7 @@ int UbusServer::UbusGetInformation(struct ubus_context      *aContext,
 
     AppendResult(error, aContext, aRequest);
 exit:
-    mNcpThreadMutex->unlock();
+    mCtrlrMutex->unlock();
     return 0;
 }
 
@@ -1440,7 +1440,7 @@ int UbusServer::UbusSetInformation(struct ubus_context      *aContext,
 
     blob_buf_init(&mBuf, 0);
 
-    mNcpThreadMutex->lock();
+    mCtrlrMutex->lock();
     if (!strcmp(aAction, "networkname"))
     {
         struct blob_attr *tb[SET_NETWORK_MAX];
@@ -1614,7 +1614,7 @@ int UbusServer::UbusSetInformation(struct ubus_context      *aContext,
     }
 
 exit:
-    mNcpThreadMutex->unlock();
+    mCtrlrMutex->unlock();
     AppendResult(error, aContext, aRequest);
     return 0;
 }
@@ -1810,7 +1810,7 @@ void UBusAgent::Init(void)
 {
     otbr::ubus::sUbusEfd = eventfd(0, 0);
 
-    otbr::ubus::UbusServer::Initialize(&mNcp, &mThreadMutex);
+    otbr::ubus::UbusServer::Initialize(&mCtrlr, &mThreadMutex);
 
     if (otbr::ubus::sUbusEfd == -1)
     {
