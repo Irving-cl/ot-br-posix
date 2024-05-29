@@ -31,8 +31,8 @@
  * This file includes definitions for the d-bus object of OpenThread service.
  */
 
-#ifndef OTBR_DBUS_THREAD_OBJECT_HPP_
-#define OTBR_DBUS_THREAD_OBJECT_HPP_
+#ifndef OTBR_DBUS_THREAD_OBJECT_RCP_HPP_
+#define OTBR_DBUS_THREAD_OBJECT_RCP_HPP_
 
 #include "openthread-br/config.h"
 
@@ -77,7 +77,7 @@ public:
                      otbr::Ncp::RcpHost *aHost,
                      Mdns::Publisher    *aPublisher);
 
-    otbrError Init(void) override;
+    otbrError Init(void);
 
     void RegisterGetPropertyHandler(const std::string         &aInterfaceName,
                                     const std::string         &aPropertyName,
@@ -186,4 +186,4 @@ private:
 } // namespace DBus
 } // namespace otbr
 
-#endif // OTBR_DBUS_THREAD_OBJECT_HPP_
+#endif // OTBR_DBUS_THREAD_OBJECT_RCP_HPP_

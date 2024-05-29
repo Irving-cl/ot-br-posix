@@ -36,6 +36,8 @@
 
 #include "common/logging.hpp"
 #include "dbus/common/constants.hpp"
+#include "dbus/server/dbus_thread_object_ncp.hpp"
+#include "dbus/server/dbus_thread_object_rcp.hpp"
 #include "mdns/mdns.hpp"
 
 namespace otbr {
@@ -44,8 +46,8 @@ namespace DBus {
 const struct timeval           DBusAgent::kPollTimeout = {0, 0};
 constexpr std::chrono::seconds DBusAgent::kDBusWaitAllowance;
 
-DBusAgent::DBusAgent(otbr::Ncp::RcpHost &aHost, Mdns::Publisher &aPublisher)
-    : mInterfaceName(aHost.GetInterfaceName())
+DBusAgent::DBusAgent(const std::string &aInterfaceName, otbr::Ncp::ThreadController &aHost, Mdns::Publisher &aPublisher)
+    : mInterfaceName(aInterfaceName)
     , mHost(aHost)
     , mPublisher(aPublisher)
 {
@@ -65,8 +67,17 @@ void DBusAgent::Init(void)
 
     VerifyOrDie(mConnection != nullptr, "Failed to get DBus connection");
 
-    mThreadObject =
-        std::unique_ptr<DBusThreadObject>(new DBusThreadObject(mConnection.get(), mInterfaceName, &mHost, &mPublisher));
+    if (mHost.GetCoprocessorType() == OT_COPROCESSOR_RCP)
+    {
+        mThreadObject = std::unique_ptr<DBusThreadObject>(
+            new DBusThreadObject(mConnection.get(), mInterfaceName, static_cast<Ncp::RcpHost *>(&mHost), &mPublisher));
+    }
+    else if (mHost.GetCoprocessorType() == OT_COPROCESSOR_NCP)
+    {
+        mThreadObject = std::unique_ptr<DBusThreadObjectNcp>(
+            new DBusThreadObjectNcp(mConnection.get(), mInterfaceName, static_cast<Ncp::NcpHost &>(mHost)));
+    }
+
     error = mThreadObject->Init();
     VerifyOrDie(error == OTBR_ERROR_NONE, "Failed to initialize DBus Agent");
 }

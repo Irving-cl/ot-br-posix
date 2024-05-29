@@ -242,6 +242,9 @@ main()
             simulation)
                 do_simulation
                 ;;
+            thread_control_api)
+                top_builddir="${OTBR_TOP_BUILDDIR}" print_result ./tests/scripts/thread_control_api
+                ;;
             package)
                 do_package
                 ;;

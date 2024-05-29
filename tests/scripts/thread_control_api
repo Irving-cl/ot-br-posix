@@ -1,0 +1,219 @@
+#!/bin/bash
+#
+#  Copyright (c) 2024, The OpenThread Authors.
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions are met:
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#  3. Neither the name of the copyright holder nor the
+#     names of its contributors may be used to endorse or promote products
+#     derived from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+#  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+#  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+#  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+#  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+#  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#  POSSIBILITY OF SUCH DAMAGE.
+#
+# Test unified thread control apis provided by otbr-agent through dbus. The
+# unified thread control apis can work under both NCP and RCP mode.
+#
+# Usage:
+#   ./thread_control_api             # test the existing thread control apis.
+set -euxo pipefail
+
+# Get our starting directory and remember it
+ORIGIN_PWD="$(pwd)"
+readonly ORIGIN_PWD
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+readonly SCRIPT_DIR
+
+#---------------------------------------
+# Configurations
+#---------------------------------------
+OT_NCP="${OT_NCP:-ot-ncp-ftd}"
+readonly OT_NCP
+
+ABS_TOP_BUILDDIR="$(cd "${top_builddir:-"${SCRIPT_DIR}"/../../}" && pwd)"
+readonly ABS_TOP_BUILDDIR
+
+ABS_TOP_SRCDIR="$(cd "${top_srcdir:-"${SCRIPT_DIR}"/../../}" && pwd)"
+readonly ABS_TOP_SRCDIR
+
+ABS_TOP_OT_SRCDIR=${ABS_TOP_SRCDIR}/third_party/openthread/repo
+readonly ABS_TOP_OT_SRCDIR
+
+ABS_TOP_OT_BUILDDIR=${ABS_TOP_BUILDDIR}/../simulation
+readonly ABS_TOP_BUILDDIR
+
+#----------------------------------------
+# Helper functions
+#----------------------------------------
+die()
+{
+    exit_message="$*"
+    echo " *** ERROR: $*"
+    exit 1
+}
+
+exists_or_die()
+{
+    [[ -f $1 ]] || die "Missing file: $1"
+}
+
+executable_or_die()
+{
+    [[ -x $1 ]] || die "Missing executable: $1"
+}
+
+write_syslog()
+{
+    logger -s -p syslog.alert "OPENTHREAD_TEST: $*"
+}
+
+#----------------------------------------
+# Test constants
+#----------------------------------------
+TEST_BASE=/tmp/test-otbr
+readonly TEST_BASE
+
+OTBR_AGENT=otbr-agent
+readonly OTBR_AGENT
+
+STAGE_DIR="${TEST_BASE}/stage"
+readonly STAGE_DIR
+
+BUILD_DIR="${TEST_BASE}/build"
+readonly BUILD_DIR
+
+OTBR_DBUS_CONF="${ABS_TOP_BUILDDIR}/src/agent/otbr-agent.conf"
+readonly OTBR_DBUS_CONF
+
+OTBR_AGENT_PATH="${ABS_TOP_BUILDDIR}/src/agent/${OTBR_AGENT}"
+readonly OTBR_AGENT_PATH
+
+# The node ids
+LEADER_NODE_ID=1
+readonly LEADER_NODE_ID
+
+# The TUN device for OpenThread border router.
+TUN_NAME=wpan0
+readonly TUN_NAME
+
+#----------------------------------------
+# Test steps
+#----------------------------------------
+build_ot_simulation()
+{
+    "${ABS_TOP_OT_SRCDIR}"/script/cmake-build simulation -DOT_APP_CLI=OFF -DOT_MTD=OFF
+    ot_ncp=$(find "${ABS_TOP_OT_BUILDDIR}" -name "${OT_NCP}")
+}
+
+test_setup()
+{
+    executable_or_die "${OTBR_AGENT_PATH}"
+
+    # Remove flashes
+    sudo rm -vrf "${TEST_BASE}/tmp"
+    # OPENTHREAD_POSIX_DAEMON_SOCKET_LOCK
+    sudo rm -vf "/tmp/openthread.lock"
+
+    build_ot_simulation
+
+    # We will be creating a lot of log information
+    # Rotate logs so we have a clean and empty set of logs uncluttered with other stuff
+    if [[ -f /etc/logrotate.conf ]]; then
+        sudo logrotate -f /etc/logrotate.conf || true
+    fi
+
+    # From now on - all exits are TRAPPED
+    # When they occur, we call the function: output_logs'.
+    trap test_teardown EXIT
+}
+
+test_teardown()
+{
+    exit_message="Test teardown"
+
+    # Capture the exit code so we can return it below
+    EXIT_CODE=$?
+    readonly EXIT_CODE
+    write_syslog "EXIT ${EXIT_CODE} - output logs"
+
+    sudo pkill -f "${OTBR_AGENT}" || true
+    wait
+
+    echo 'clearing all'
+    sudo rm /etc/dbus-1/system.d/otbr-agent.conf || true
+    sudo rm -rf "${STAGE_DIR}" || true
+    sudo rm -rf "${BUILD_DIR}" || true
+    sudo rm -rf "${ABS_TOP_OT_BUILDDIR}" || true
+
+    echo "EXIT ${EXIT_CODE}: MESSAGE: ${exit_message}"
+    exit ${EXIT_CODE}
+}
+
+otbr-agent_start()
+{
+    exists_or_die "${OTBR_DBUS_CONF}"
+    sudo cp "${OTBR_DBUS_CONF}" /etc/dbus-1/system.d
+
+    write_syslog "AGENT: kill old"
+    sudo killall "${OTBR_AGENT}" || true
+    sleep 5
+    write_syslog "AGENT: starting"
+
+    # we launch this in the background
+    (
+        set -e
+        set -x
+
+        cd "${ORIGIN_PWD}"
+
+        # check version
+        sudo "${OTBR_AGENT_PATH}" -V
+        # check invalid arguments
+        sudo "${OTBR_AGENT_PATH}" -x && exit $?
+
+        [[ ! -d tmp ]] || sudo rm -rf tmp
+        sudo "${OTBR_AGENT_PATH}" -I "${TUN_NAME}" -v -d 6 "spinel+hdlc+forkpty://${ot_ncp}?forkpty-arg=${LEADER_NODE_ID}" &
+    )
+
+    # wait for it to complete
+    sleep 10
+
+    pidof ${OTBR_AGENT} || die "AGENT: failed to start"
+    write_syslog "AGENT: start complete"
+}
+
+test_thread_control_apis()
+{
+    sudo dbus-send --system --dest=io.openthread.BorderRouter.wpan0 --type=method_call --print-reply /io/openthread/BorderRouter/wpan0 org.freedesktop.DBus.Properties.Get string:io.openthread.BorderRouter string:DeviceRole | grep -E "disabled"
+}
+
+test_ncp_mode()
+{
+    test_setup
+    otbr-agent_start
+    test_thread_control_apis
+}
+
+main()
+{
+    # TODO: Only test NCP mode for now to verify newly implemented APIs
+    test_ncp_mode
+}
+
+main "$@"

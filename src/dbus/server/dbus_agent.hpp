@@ -46,9 +46,10 @@
 #include "dbus/common/dbus_message_helper.hpp"
 #include "dbus/common/dbus_resources.hpp"
 #include "dbus/server/dbus_object.hpp"
-#include "dbus/server/dbus_thread_object.hpp"
+#include "dbus/server/dbus_thread_object_ncp.hpp"
+#include "dbus/server/dbus_thread_object_rcp.hpp"
 
-#include "ncp/rcp_host.hpp"
+#include "ncp/thread_controller.hpp"
 
 namespace otbr {
 namespace DBus {
@@ -59,10 +60,11 @@ public:
     /**
      * The constructor of dbus agent.
      *
-     * @param[in] aHost  A reference to the Thread controller.
+     * @param[in] aInterfaceName  Name of the Thread network interface.
+     * @param[in] aHost           A reference to the Thread controller.
      *
      */
-    DBusAgent(otbr::Ncp::RcpHost &aHost, Mdns::Publisher &aPublisher);
+    DBusAgent(const std::string &aInterfaceName, otbr::Ncp::ThreadController &aHost, Mdns::Publisher &aPublisher);
 
     /**
      * This method initializes the dbus agent.
@@ -85,11 +87,11 @@ private:
 
     static const struct timeval kPollTimeout;
 
-    std::string                       mInterfaceName;
-    std::unique_ptr<DBusThreadObject> mThreadObject;
-    UniqueDBusConnection              mConnection;
-    otbr::Ncp::RcpHost               &mHost;
-    Mdns::Publisher                  &mPublisher;
+    std::string                  mInterfaceName;
+    std::unique_ptr<DBusObject>  mThreadObject;
+    UniqueDBusConnection         mConnection;
+    otbr::Ncp::ThreadController &mHost;
+    Mdns::Publisher             &mPublisher;
 
     /**
      * This map is used to track DBusWatch-es.

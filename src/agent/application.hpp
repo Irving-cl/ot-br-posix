@@ -260,6 +260,10 @@ private:
     void InitRcpMode(void);
     void DeinitRcpMode(void);
 
+    void ConstructNcpMode(void);
+    void InitNcpMode(void);
+    void DeinitNcpMode(void);
+
     std::string mInterfaceName;
 #if __linux__
     otbr::Utils::InfraLinkSelector mInfraLinkSelector;

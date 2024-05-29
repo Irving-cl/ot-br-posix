@@ -76,6 +76,13 @@ Application::Application(const std::string               &aInterfaceName,
     {
         ConstructRcpMode(aRestListenAddress, aRestListenPort);
     }
+    else if (mHost->GetCoprocessorType() == OT_COPROCESSOR_NCP)
+    {
+        ConstructNcpMode();
+    }
+
+    OT_UNUSED_VARIABLE(aRestListenAddress);
+    OT_UNUSED_VARIABLE(aRestListenPort);
 }
 
 void Application::Init(void)
@@ -86,6 +93,10 @@ void Application::Init(void)
     {
         InitRcpMode();
     }
+    else if (mHost->GetCoprocessorType() == OT_COPROCESSOR_NCP)
+    {
+        InitNcpMode();
+    }
 }
 
 void Application::Deinit(void)
@@ -93,6 +104,10 @@ void Application::Deinit(void)
     if (mHost->GetCoprocessorType() == OT_COPROCESSOR_RCP)
     {
         DeinitRcpMode();
+    }
+    else if (mHost->GetCoprocessorType() == OT_COPROCESSOR_NCP)
+    {
+        DeinitNcpMode();
     }
 
     mHost->Deinit();
@@ -222,7 +237,7 @@ void Application::ConstructRcpMode(const std::string &aRestListenAddress, int aR
     mRestWebServer = MakeUnique<rest::RestWebServer>(rcpHost, aRestListenAddress, aRestListenPort);
 #endif
 #if OTBR_ENABLE_DBUS_SERVER && OTBR_ENABLE_BORDER_AGENT
-    mDBusAgent = MakeUnique<DBus::DBusAgent>(rcpHost, *mPublisher);
+    mDBusAgent = MakeUnique<DBus::DBusAgent>(mInterfaceName, rcpHost, *mPublisher);
 #endif
 
     OT_UNUSED_VARIABLE(aRestListenAddress);
@@ -280,6 +295,25 @@ void Application::DeinitRcpMode(void)
 #if OTBR_ENABLE_MDNS
     mPublisher->Stop();
 #endif
+}
+
+void Application::ConstructNcpMode(void)
+{
+    otbr::Ncp::NcpHost &ncpHost = static_cast<otbr::Ncp::NcpHost &>(*mHost);
+#if OTBR_ENABLE_DBUS_SERVER
+    mDBusAgent = MakeUnique<DBus::DBusAgent>(mInterfaceName, ncpHost, *mPublisher);
+#endif
+}
+
+void Application::InitNcpMode(void)
+{
+#if OTBR_ENABLE_DBUS_SERVER
+    mDBusAgent->Init();
+#endif
+}
+
+void Application::DeinitNcpMode(void)
+{
 }
 
 } // namespace otbr

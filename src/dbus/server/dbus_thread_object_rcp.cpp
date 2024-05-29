@@ -50,7 +50,7 @@
 #include "common/code_utils.hpp"
 #include "dbus/common/constants.hpp"
 #include "dbus/server/dbus_agent.hpp"
-#include "dbus/server/dbus_thread_object.hpp"
+#include "dbus/server/dbus_thread_object_rcp.hpp"
 #if OTBR_ENABLE_FEATURE_FLAGS
 #include "proto/feature_flag.pb.h"
 #endif
@@ -105,7 +105,7 @@ otbrError DBusThreadObject::Init(void)
     otbrError error        = OTBR_ERROR_NONE;
     auto      threadHelper = mHost->GetThreadHelper();
 
-    SuccessOrExit(error = DBusObject::Init());
+    SuccessOrExit(error = DBusObject::Initialize(false));
 
     threadHelper->AddDeviceRoleHandler(std::bind(&DBusThreadObject::DeviceRoleHandler, this, _1));
     threadHelper->AddActiveDatasetChangeHandler(std::bind(&DBusThreadObject::ActiveDatasetChangeHandler, this, _1));
