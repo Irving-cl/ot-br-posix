@@ -43,6 +43,8 @@
 #include "lib/spinel/spinel.h"
 #include "lib/spinel/spinel_driver.hpp"
 
+#include "common/types.hpp"
+
 namespace otbr {
 namespace Ncp {
 
@@ -53,6 +55,9 @@ namespace Ncp {
 class NcpSpinel
 {
 public:
+    using AsyncResultReceiver  = std::function<void(otError)>;
+    using GetDeviceRoleHandler = std::function<void(otError, otDeviceRole)>;
+
     /**
      * Constructor.
      *
@@ -92,8 +97,46 @@ public:
      * @param[in]  aHandler   A handler to return the role.
      *
      */
-    using GetDeviceRoleHandler = std::function<void(otError, otDeviceRole)>;
     void GetDeviceRole(GetDeviceRoleHandler aHandler);
+
+    /**
+     * This method sets the active dataset on the NCP.
+     *
+     * @param[in] aActiveOpDatasetTlvs  A reference to the active operational dataset of the Thread network.
+     *
+     */
+    void DatasetSetActiveTlvs(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, AsyncResultReceiver aReceiver);
+
+    /**
+     * This method enableds/disables the IP6 on the NCP.
+     *
+     * @param[in] aEnable  TRUE to enable and FALSE to disable.
+     *
+     */
+    void Ip6SetEnabled(bool aEnable, AsyncResultReceiver aReceiver);
+
+    /**
+     * This method enableds/disables the Thread network on the NCP.
+     *
+     * @param[in] aEnable  TRUE to enable and FALSE to disable.
+     *
+     */
+    void ThreadSetEnabled(bool aEnable, AsyncResultReceiver aReceiver);
+
+    /**
+     * This method instructs the device to leave the current network gracefully.
+     *
+     * 1. If the device is disabled, nothing will be done.
+     * 2. If there is already an ongoing 'Leave' operation, no action will be taken and @p aReceiver
+     *    will be called after the previous request is completed.
+     * 3. Otherwise, OTBR sends Address Release Notification (i.e. ADDR_REL.ntf) to gracefully detach
+     *    from the current network and it takes 1 second to finish.
+     * 4. The Operational Dataset will be removed from persistent storage.
+     *
+     * @param[in] aReceiver  A receiver to get the async result of this operation.
+     *
+     */
+    void ThreadDetachGracefully(AsyncResultReceiver aReceiver);
 
 private:
     static constexpr uint8_t kMaxTids = 16;
@@ -106,12 +149,19 @@ private:
     void        HandleReceivedFrame(const uint8_t *aFrame, uint16_t aLength, uint8_t aHeader, bool &aShouldSaveFrame);
     static void HandleSavedFrame(const uint8_t *aFrame, uint16_t aLength, void *aContext);
 
-    void HandleNotification(const uint8_t *aFrame, uint16_t aLength);
-    void HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_t aLength);
-    void HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
+    void      HandleNotification(const uint8_t *aFrame, uint16_t aLength);
+    void      HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_t aLength);
+    otbrError HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
 
     spinel_tid_t GetNextTid(void);
     void         FreeTid(spinel_tid_t tid) { mCmdTidsInUse &= ~(1 << tid); }
+
+    otError SetProperty(spinel_prop_key_t aKey, const char *aFormat, ...);
+
+    void GetFlagsFromSecurityPolicy(const otSecurityPolicy *aSecurityPolicy, uint8_t *aFlags, uint8_t aFlagsLength);
+    otDeviceRole GetDeviceRoleFromSpinelNetRole(const spinel_net_role_t aRole);
+
+    otError ParseIp6Addresses(const uint8_t *aBuf, uint8_t aLen, otNetifAddress *aAddressList, uint8_t &aAddrNum);
 
     ot::Spinel::SpinelDriver *mSpinelDriver;
     uint16_t                  mCmdTidsInUse;              ///< Used transaction ids.
@@ -120,6 +170,10 @@ private:
 
     otDeviceRole         mDeviceRole;
     GetDeviceRoleHandler mGetDeviceRoleHandler;
+    AsyncResultReceiver  mDatasetSetActiveResultReceiver;
+    AsyncResultReceiver  mIp6SetEnabledResultReceiver;
+    AsyncResultReceiver  mThreadSetEnabledResultReceiver;
+    AsyncResultReceiver  mThreadDetachGracefullyReceiver;
 };
 
 } // namespace Ncp
