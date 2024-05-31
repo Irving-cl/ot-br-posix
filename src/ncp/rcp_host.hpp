@@ -196,6 +196,8 @@ public:
 
     // Thread Control virtual methods
     void GetDeviceRole(const DeviceRoleHandler aHandler) override;
+    void Join(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, const AsyncResultReceiver aRecevier) override;
+    void Leave(const AsyncResultReceiver aRecevier) override;
 
     CoprocessorType GetCoprocessorType(void) override
     {

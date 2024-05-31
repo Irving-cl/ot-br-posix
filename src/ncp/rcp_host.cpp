@@ -378,6 +378,20 @@ void RcpHost::GetDeviceRole(const DeviceRoleHandler aHandler)
     aHandler(OT_ERROR_NONE, role);
 }
 
+void RcpHost::Join(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, const AsyncResultReceiver aReceiver)
+{
+    OT_UNUSED_VARIABLE(aActiveOpDatasetTlvs);
+
+    // TODO: Implement Join under RCP mode.
+    aReceiver(OT_ERROR_NOT_IMPLEMENTED, "Not implemented!");
+}
+
+void RcpHost::Leave(const AsyncResultReceiver aReceiver)
+{
+    // TODO: Implement Leave under RCP mode.
+    aReceiver(OT_ERROR_NOT_IMPLEMENTED, "Not implemented!");
+}
+
 /*
  * Provide, if required an "otPlatLog()" function
  */

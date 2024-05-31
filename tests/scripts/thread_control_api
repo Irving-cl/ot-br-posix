@@ -43,6 +43,9 @@ readonly SCRIPT_DIR
 #---------------------------------------
 # Configurations
 #---------------------------------------
+OT_CLI="${OT_CLI:-ot-cli-ftd}"
+readonly OT_CLI
+
 OT_NCP="${OT_NCP:-ot-ncp-ftd}"
 readonly OT_NCP
 
@@ -118,6 +121,7 @@ readonly TUN_NAME
 build_ot_simulation()
 {
     "${ABS_TOP_OT_SRCDIR}"/script/cmake-build simulation -DOT_APP_CLI=OFF -DOT_MTD=OFF
+    ot_cli=$(find "${ABS_TOP_OT_BUILDDIR}" -name "${OT_CLI}")
     ot_ncp=$(find "${ABS_TOP_OT_BUILDDIR}" -name "${OT_NCP}")
 }
 
@@ -153,6 +157,8 @@ test_teardown()
     write_syslog "EXIT ${EXIT_CODE} - output logs"
 
     sudo pkill -f "${OTBR_AGENT}" || true
+    sudo pkill -f "${OT_CLI}" || true
+    sudo pkill -f "${OT_NCP}" || true
     wait
 
     echo 'clearing all'
@@ -200,6 +206,31 @@ otbr-agent_start()
 
 test_thread_control_apis()
 {
+    sudo dbus-send --system --dest=io.openthread.BorderRouter.wpan0 --type=method_call --print-reply /io/openthread/BorderRouter/wpan0 org.freedesktop.DBus.Properties.Get string:io.openthread.BorderRouter string:DeviceRole | grep -E "disabled"
+
+    local dataset="0x0e,0x08,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x03,0x00,0x00,0x14,"
+    dataset+="0x35,0x06,0x00,0x04,0x00,0x1f,0xff,0xe0,0x02,0x08,0x7d,0x61,0xeb,0x42,0xcd,0xc4,"
+    dataset+="0x8d,0x6a,0x07,0x08,0xfd,0x0d,0x07,0xfc,0xa1,0xb9,0xf0,0x50,0x05,0x10,0xba,0x08,"
+    dataset+="0x8f,0xc2,0xbd,0x6c,0x3b,0x38,0x97,0xf7,0xa1,0x0f,0x58,0x26,0x3f,0xf3,0x03,0x0f,"
+    dataset+="0x4f,0x70,0x65,0x6e,0x54,0x68,0x72,0x65,0x61,0x64,0x2d,0x35,0x32,0x34,0x66,0x01,"
+    dataset+="0x02,0x52,0x4f,0x04,0x10,0x9d,0xc0,0x23,0xcc,0xd4,0x47,0xb1,0x2b,0x50,0x99,0x7e,"
+    dataset+="0xf6,0x80,0x20,0xf1,0x9e,0x0c,0x04,0x02,0xa0,0xf7,0xf8"
+
+    sudo dbus-send --system --dest=io.openthread.BorderRouter.wpan0 \
+        --type=method_call --print-reply /io/openthread/BorderRouter/wpan0 \
+        io.openthread.BorderRouter.AttachAllNodesTo \
+        "array:byte:${dataset}"
+
+    sleep 10
+
+    sudo dbus-send --system --dest=io.openthread.BorderRouter.wpan0 --type=method_call --print-reply /io/openthread/BorderRouter/wpan0 org.freedesktop.DBus.Properties.Get string:io.openthread.BorderRouter string:DeviceRole | grep -E "leader"
+
+    sudo dbus-send --system --dest=io.openthread.BorderRouter.wpan0 \
+        --type=method_call --print-reply /io/openthread/BorderRouter/wpan0 \
+        io.openthread.BorderRouter.LeaveNetwork
+
+    sleep 3
+
     sudo dbus-send --system --dest=io.openthread.BorderRouter.wpan0 --type=method_call --print-reply /io/openthread/BorderRouter/wpan0 org.freedesktop.DBus.Properties.Get string:io.openthread.BorderRouter string:DeviceRole | grep -E "disabled"
 }
 
