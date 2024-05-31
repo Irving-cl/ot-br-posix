@@ -71,6 +71,42 @@ void NcpHost::GetDeviceRole(DeviceRoleHandler aHandler)
     mNcpSpinel.GetDeviceRole(aHandler);
 }
 
+void NcpHost::Join(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, const AsyncResultReceiver aReceiver)
+{
+    auto handle_3 = [aReceiver](otError aError) {
+        aReceiver(aError, aError == OT_ERROR_NONE ? "Success" : "Failed to enable the Thread network!");
+    };
+
+    auto handle_2 = [this, aReceiver, handle_3](otError aError) {
+        if (aError != OT_ERROR_NONE)
+        {
+            aReceiver(aError, "Failed to enable the network interface!");
+        }
+        else
+        {
+            mNcpSpinel.ThreadSetEnabled(true, handle_3);
+        }
+    };
+
+    auto handle_1 = [this, aReceiver, handle_2](otError aError) {
+        if (aError != OT_ERROR_NONE)
+        {
+            aReceiver(aError, "Failed to set active dataset!");
+        }
+        else
+        {
+            mNcpSpinel.Ip6SetEnabled(true, handle_2);
+        }
+    };
+
+    mNcpSpinel.DatasetSetActiveTlvs(aActiveOpDatasetTlvs, handle_1);
+}
+
+void NcpHost::Leave(const AsyncResultReceiver aReceiver)
+{
+    mNcpSpinel.ThreadDetachGracefully([aReceiver](otError aError) { aReceiver(aError, ""); });
+}
+
 void NcpHost::Process(const MainloopContext &aMainloop)
 {
     mSpinelDriver.Process(&aMainloop);

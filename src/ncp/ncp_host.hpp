@@ -63,7 +63,9 @@ public:
     ~NcpHost(void) override = default;
 
     // ThreadHost methods
-    void            GetDeviceRole(const DeviceRoleHandler aHandler) override;
+    void GetDeviceRole(const DeviceRoleHandler aHandler) override;
+    void Join(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, const AsyncResultReceiver aReceiver) override;
+    void Leave(const AsyncResultReceiver aReceiver) override;
     CoprocessorType GetCoprocessorType(void) override { return OT_COPROCESSOR_NCP; }
     const char     *GetCoprocessorVersion(void) override;
     const char     *GetInterfaceName(void) const override { return mConfig.mInterfaceName; }

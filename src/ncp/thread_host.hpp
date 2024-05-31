@@ -37,6 +37,7 @@
 #include <functional>
 #include <memory>
 
+#include <openthread/dataset.h>
 #include <openthread/error.h>
 #include <openthread/thread.h>
 
@@ -57,7 +58,8 @@ namespace Ncp {
 class ThreadHost
 {
 public:
-    using DeviceRoleHandler = std::function<void(otError, otDeviceRole)>;
+    using AsyncResultReceiver = std::function<void(otError, const std::string &)>;
+    using DeviceRoleHandler   = std::function<void(otError, otDeviceRole)>;
 
     /**
      * Create a Thread Controller Instance.
@@ -85,7 +87,31 @@ public:
      * @param[in] aHandler  A handler to return the role.
      *
      */
-    virtual void GetDeviceRole(DeviceRoleHandler aHandler) = 0;
+    virtual void GetDeviceRole(const DeviceRoleHandler aHandler) = 0;
+
+    /**
+     * This method joins this device to the network specified by @p aActiveOpDatasetTlvs.
+     *
+     * @param[in] aActiveOpDatasetTlvs  A reference to the active operational dataset of the Thread network.
+     * @param[in] aReceiver             A receiver to get the async result of this operation.
+     *
+     */
+    virtual void Join(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, const AsyncResultReceiver aRecevier) = 0;
+
+    /**
+     * This method instructs the device to leave the current network gracefully.
+     *
+     * 1. If the device is disabled, nothing will be done.
+     * 2. If there is already an ongoing 'Leave' operation, no action will be taken and @p aReceiver
+     *    will be called after the previous request is completed.
+     * 3. Otherwise, OTBR sends Address Release Notification (i.e. ADDR_REL.ntf) to grcefully detach
+     *    from the current network and it takes 1 second to finish.
+     * 4. The Operational Dataset will be removed from persistent storage.
+     *
+     * @param[in] aReceiver  A receiver to get the async result of this operation.
+     *
+     */
+    virtual void Leave(const AsyncResultReceiver aRecevier) = 0;
 
     /**
      * Returns the co-processor type.
