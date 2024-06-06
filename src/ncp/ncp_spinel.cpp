@@ -53,6 +53,7 @@ NcpSpinel::NcpSpinel(void)
     , mDeviceRole(OT_DEVICE_ROLE_DISABLED)
     , mGetDeviceRoleHandler(nullptr)
     , mDatasetSetActiveResultReceiver(nullptr)
+    , mDatasetSetPendingResultReceiver(nullptr)
     , mIp6SetEnabledResultReceiver(nullptr)
     , mThreadSetEnabledResultReceiver(nullptr)
     , mThreadDetachGracefullyReceiver(nullptr)
@@ -132,6 +133,56 @@ exit:
     if (error == OT_ERROR_NONE)
     {
         mDatasetSetActiveResultReceiver = aReceiver;
+    }
+    else
+    {
+        aReceiver(error);
+    }
+}
+
+void NcpSpinel::DatasetSetPendingTlvs(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
+                                      AsyncResultReceiver             aReceiver)
+{
+    otError              error = OT_ERROR_NONE;
+    otOperationalDataset dataset;
+    otIp6Address         addrMlPrefix;
+    uint8_t              flagsSecurityPolicy[2];
+
+    VerifyOrExit(mDatasetSetPendingResultReceiver == nullptr, error = OT_ERROR_BUSY);
+
+    otDatasetParseTlvs(&aPendingOpDatasetTlvs, &dataset);
+    GetFlagsFromSecurityPolicy(&dataset.mSecurityPolicy, flagsSecurityPolicy, sizeof(flagsSecurityPolicy));
+    memcpy(addrMlPrefix.mFields.m8, dataset.mMeshLocalPrefix.m8, 8);
+    memset(addrMlPrefix.mFields.m8 + 8, 0, 8);
+
+    error = SetProperty(
+        SPINEL_PROP_THREAD_PENDING_DATASET,
+        SPINEL_DATATYPE_STRUCT_S(                                                             // Active Timestamp
+            SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_UINT64_S) SPINEL_DATATYPE_STRUCT_S( // Pending Timestamp
+            SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_UINT64_S) SPINEL_DATATYPE_STRUCT_S( // Network Key
+            SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_DATA_S) SPINEL_DATATYPE_STRUCT_S(   // Network Name
+            SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_UTF8_S) SPINEL_DATATYPE_STRUCT_S(   // Extened PAN ID
+            SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_DATA_S) SPINEL_DATATYPE_STRUCT_S(   // Mesh Local Prefix
+            SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_IPv6ADDR_S SPINEL_DATATYPE_UINT8_S)
+            SPINEL_DATATYPE_STRUCT_S(                                                             // Delay
+                SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_UINT32_S) SPINEL_DATATYPE_STRUCT_S( // PAN ID
+                SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_UINT16_S) SPINEL_DATATYPE_STRUCT_S( // Channel
+                SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_UINT8_S) SPINEL_DATATYPE_STRUCT_S(  // Pskc
+                SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_DATA_S) SPINEL_DATATYPE_STRUCT_S(   // Security Policy
+                SPINEL_DATATYPE_UINT_PACKED_S SPINEL_DATATYPE_UINT16_S SPINEL_DATATYPE_UINT8_S SPINEL_DATATYPE_UINT8_S),
+        SPINEL_PROP_DATASET_ACTIVE_TIMESTAMP, dataset.mActiveTimestamp.mSeconds, SPINEL_PROP_DATASET_PENDING_TIMESTAMP,
+        dataset.mPendingTimestamp.mSeconds, SPINEL_PROP_NET_NETWORK_KEY, dataset.mNetworkKey.m8,
+        sizeof(dataset.mNetworkKey.m8), SPINEL_PROP_NET_NETWORK_NAME, dataset.mNetworkName.m8, SPINEL_PROP_NET_XPANID,
+        dataset.mExtendedPanId.m8, sizeof(dataset.mExtendedPanId.m8), SPINEL_PROP_IPV6_ML_PREFIX, &addrMlPrefix,
+        OT_IP6_PREFIX_BITSIZE, SPINEL_PROP_DATASET_DELAY_TIMER, dataset.mDelay, SPINEL_PROP_MAC_15_4_PANID,
+        dataset.mPanId, SPINEL_PROP_PHY_CHAN, dataset.mChannel, SPINEL_PROP_NET_PSKC, dataset.mPskc.m8,
+        sizeof(dataset.mPskc.m8), SPINEL_PROP_DATASET_SECURITY_POLICY, dataset.mSecurityPolicy.mRotationTime,
+        flagsSecurityPolicy[0], flagsSecurityPolicy[1]);
+
+exit:
+    if (error == OT_ERROR_NONE)
+    {
+        mDatasetSetPendingResultReceiver = aReceiver;
     }
     else
     {
@@ -306,6 +357,19 @@ void NcpSpinel::HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_
         else
         {
             otbrLogCrit("No Receiver is set for DatasetSetActive");
+        }
+    }
+    else if (mWaitingKeyTable[aTid] == SPINEL_PROP_THREAD_PENDING_DATASET)
+    {
+        // Handle Set
+        if (mDatasetSetPendingResultReceiver)
+        {
+            mDatasetSetPendingResultReceiver(OT_ERROR_NONE);
+            mDatasetSetPendingResultReceiver = nullptr;
+        }
+        else
+        {
+            otbrLogCrit("No Receiver is set for DatasetSetPending");
         }
     }
     else if (mWaitingKeyTable[aTid] == SPINEL_PROP_NET_IF_UP)

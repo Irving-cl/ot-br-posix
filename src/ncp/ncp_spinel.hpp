@@ -108,6 +108,14 @@ public:
     void DatasetSetActiveTlvs(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, AsyncResultReceiver aReceiver);
 
     /**
+     * This method sets the pending dataset on the NCP.
+     *
+     * @param[in] aPendingOpDatasetTlvs  A reference to the pending operational dataset of the Thread network.
+     *
+     */
+    void DatasetSetPendingTlvs(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs, AsyncResultReceiver aReceiver);
+
+    /**
      * This method enableds/disables the IP6 on the NCP.
      *
      * @param[in] aEnable  TRUE to enable and FALSE to disable.
@@ -171,6 +179,7 @@ private:
     otDeviceRole         mDeviceRole;
     GetDeviceRoleHandler mGetDeviceRoleHandler;
     AsyncResultReceiver  mDatasetSetActiveResultReceiver;
+    AsyncResultReceiver  mDatasetSetPendingResultReceiver;
     AsyncResultReceiver  mIp6SetEnabledResultReceiver;
     AsyncResultReceiver  mThreadSetEnabledResultReceiver;
     AsyncResultReceiver  mThreadDetachGracefullyReceiver;
