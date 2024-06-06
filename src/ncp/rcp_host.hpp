@@ -198,6 +198,8 @@ public:
     void GetDeviceRole(const DeviceRoleHandler aHandler) override;
     void Join(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, const AsyncResultReceiver aRecevier) override;
     void Leave(const AsyncResultReceiver aRecevier) override;
+    void ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
+                           const AsyncResultReceiver       aReceiver) override;
 
     CoprocessorType GetCoprocessorType(void) override
     {
