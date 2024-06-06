@@ -118,6 +118,8 @@ readonly OTBR_AGENT_PATH
 # The node ids
 LEADER_NODE_ID=1
 readonly LEADER_NODE_ID
+CHILD_NODE_ID=2
+readonly CHILD_NODE_ID
 
 # The TUN device for OpenThread border router.
 TUN_NAME=wpan0
@@ -139,6 +141,8 @@ test_setup()
 
     # Remove flashes
     sudo rm -vrf "${TEST_BASE}/tmp"
+    sudo mkdir -p "${TEST_BASE}/tmp"
+
     # OPENTHREAD_POSIX_DAEMON_SOCKET_LOCK
     sudo rm -vf "/tmp/openthread.lock"
 
@@ -204,6 +208,7 @@ otbr_exec_expect_script()
         } || {
             local EXIT_CODE=$?
 
+<<<<<<< HEAD:tests/scripts/ncp_mode
             echo -e "\n${OTBR_COLOR_FAIL}FAIL${OTBR_COLOR_NONE} ${script}"
             cat "${log_file}" >&2
             return "${EXIT_CODE}"

@@ -107,6 +107,34 @@ void NcpHost::Leave(const AsyncResultReceiver aReceiver)
     mNcpSpinel.ThreadDetachGracefully([aReceiver](otError aError) { aReceiver(aError, ""); });
 }
 
+void NcpHost::ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
+                                const AsyncResultReceiver       aReceiver)
+{
+    auto handle_2 = [this, aReceiver](otError aError) {
+        aReceiver(aError, aError == OT_ERROR_NONE ? "Success" : "Failed to send MGMT_PENDING_SET.req");
+    };
+
+    auto handle_1 = [this, aReceiver, handle_2, aPendingOpDatasetTlvs](otError aError, otDeviceRole aRole) {
+        if (aError != OT_ERROR_NONE)
+        {
+            aReceiver(aError, "Failed to get the device role!");
+        }
+        else
+        {
+            if (aRole == OT_DEVICE_ROLE_DISABLED || aRole == OT_DEVICE_ROLE_DETACHED)
+            {
+                aReceiver(OT_ERROR_INVALID_STATE, "Cannot schedule migration when this device is detached");
+            }
+            else
+            {
+                mNcpSpinel.DatasetSetPendingTlvs(aPendingOpDatasetTlvs, handle_2);
+            }
+        }
+    };
+
+    mNcpSpinel.GetDeviceRole(handle_1);
+}
+
 void NcpHost::Process(const MainloopContext &aMainloop)
 {
     mSpinelDriver.Process(&aMainloop);
