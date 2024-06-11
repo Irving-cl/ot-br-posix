@@ -57,6 +57,10 @@ NcpSpinel::NcpSpinel(void)
     , mIp6SetEnabledResultReceiver(nullptr)
     , mThreadSetEnabledResultReceiver(nullptr)
     , mThreadDetachGracefullyReceiver(nullptr)
+    , mIp6AddressTableCallback(nullptr)
+    , mIp6MulticastAddressTableCallback(nullptr)
+    , mNetifStateChangedCallback(nullptr)
+    , mIpDatagramRecvLength(0)
 {
     std::fill_n(mWaitingKeyTable, SPINEL_PROP_LAST_STATUS, sizeof(mWaitingKeyTable));
 }
@@ -207,6 +211,13 @@ exit:
     {
         aReceiver(error);
     }
+}
+
+void NcpSpinel::Ip6Send(const uint8_t *aData, uint16_t aLength, const AsyncResultReceiver &aReceiver)
+{
+    otError error = SetProperty(SPINEL_PROP_STREAM_NET, SPINEL_DATATYPE_DATA_WLEN_S, aData, aLength);
+
+    aReceiver(error);
 }
 
 void NcpSpinel::ThreadSetEnabled(bool aEnable, AsyncResultReceiver aReceiver)
@@ -374,6 +385,11 @@ void NcpSpinel::HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_
     }
     else if (mWaitingKeyTable[aTid] == SPINEL_PROP_NET_IF_UP)
     {
+        bool isUp;
+
+        unpacked = spinel_datatype_unpack(data, len, "i", &isUp);
+        VerifyOrExit(unpacked > 0, error = OT_ERROR_PARSE);
+
         // Handle Set
         if (mIp6SetEnabledResultReceiver)
         {
@@ -383,6 +399,11 @@ void NcpSpinel::HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_
         else
         {
             otbrLogCrit("No Receiver is set for Ip6SetEnabled");
+        }
+
+        if (mNetifStateChangedCallback)
+        {
+            mNetifStateChangedCallback(isUp);
         }
     }
     else if (mWaitingKeyTable[aTid] == SPINEL_PROP_NET_STACK_UP)
@@ -442,17 +463,57 @@ otbrError NcpSpinel::HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffe
     {
         constexpr uint8_t kMaxNetifAddrs = 10;
 
-        otNetifAddress addresses[kMaxNetifAddrs];
-        uint8_t        addrNum = kMaxNetifAddrs;
+        otIp6AddressInfo addresses[kMaxNetifAddrs];
+        uint8_t          addrNum = kMaxNetifAddrs;
+        memset(addresses, 0, sizeof(addresses));
 
         ParseIp6Addresses(aBuffer, aLength, addresses, addrNum);
         otbrLogInfo("Receive IPv6 address table");
 
-        for (uint8_t i = 0; i < addrNum; i++)
+        if (mIp6AddressTableCallback)
         {
-            char buffer[64] = {0};
-            otIp6AddressToString(&addresses[i].mAddress, buffer, sizeof(buffer));
-            otbrLogInfo("address: %s", buffer);
+            std::vector<otIp6AddressInfo> addressVec(addresses, addresses + addrNum);
+            mIp6AddressTableCallback(addressVec);
+        }
+        break;
+    }
+
+        /*
+        case SPINEL_PROP_IPV6_UNICAST_ADDRESS_TABLE:
+        {
+            constexpr uint8_t kMaxNetifAddrs = 10;
+
+            otIp6AddressInfo addresses[kMaxNetifAddrs];
+            uint8_t          addrNum = kMaxNetifAddrs;
+            memset(addresses, 0, sizeof(addresses));
+
+            ParseIp6UnicastAddresses(aBuffer, aLength, addresses, addrNum);
+            otbrLogInfo("Receive IPv6 address table");
+
+            if (mIp6AddressTableCallback)
+            {
+                std::vector<otIp6AddressInfo> addressVec(addresses, addresses + addrNum);
+                mIp6AddressTableCallback(addressVec);
+            }
+            break;
+        }
+        */
+
+    case SPINEL_PROP_IPV6_MULTICAST_ADDRESS_TABLE:
+    {
+        constexpr uint8_t kMaxAddrs = 10;
+
+        otIp6Address addresses[kMaxAddrs];
+        uint8_t      addrNum = kMaxAddrs;
+        memset(addresses, 0, sizeof(addresses));
+
+        ParseIp6MulticastAddresses(aBuffer, aLength, addresses, addrNum);
+        otbrLogInfo("Receive IPv6 multicast address table");
+
+        if (mIp6MulticastAddressTableCallback)
+        {
+            std::vector<otIp6Address> addressVec(addresses, addresses + addrNum);
+            mIp6MulticastAddressTableCallback(addressVec);
         }
         break;
     }
@@ -467,6 +528,20 @@ otbrError NcpSpinel::HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffe
         else
         {
             otbrLogWarning("No Receiver set for DetachGracefully.");
+        }
+        break;
+    }
+
+    case SPINEL_PROP_STREAM_NET:
+    {
+        mIpDatagramRecvLength = sizeof(mIpDatagramRecv);
+        unpacked = spinel_datatype_unpack_in_place(aBuffer, aLength, SPINEL_DATATYPE_DATA_WLEN_S, &mIpDatagramRecv[0],
+                                                   &mIpDatagramRecvLength);
+
+        VerifyOrExit(unpacked > 0, error = OTBR_ERROR_PARSE);
+        if (mIp6ReceiveCallback)
+        {
+            mIp6ReceiveCallback(mIpDatagramRecv, mIpDatagramRecvLength);
         }
         break;
     }
@@ -629,7 +704,10 @@ otDeviceRole NcpSpinel::GetDeviceRoleFromSpinelNetRole(const spinel_net_role_t a
     return role;
 }
 
-otError NcpSpinel::ParseIp6Addresses(const uint8_t *aBuf, uint8_t aLen, otNetifAddress *aAddressList, uint8_t &aAddrNum)
+otError NcpSpinel::ParseIp6Addresses(const uint8_t    *aBuf,
+                                     uint8_t           aLen,
+                                     otIp6AddressInfo *aAddressList,
+                                     uint8_t          &aAddrNum)
 {
     otError             error = OT_ERROR_NONE;
     ot::Spinel::Decoder decoder;
@@ -643,7 +721,7 @@ otError NcpSpinel::ParseIp6Addresses(const uint8_t *aBuf, uint8_t aLen, otNetifA
     {
         VerifyOrExit(index < aAddrNum, error = OT_ERROR_NO_BUFS);
 
-        otNetifAddress     *cur = &aAddressList[index];
+        otIp6AddressInfo   *cur = &aAddressList[index];
         const otIp6Address *addr;
         uint8_t             prefixLength;
         uint32_t            preferred;
@@ -651,15 +729,91 @@ otError NcpSpinel::ParseIp6Addresses(const uint8_t *aBuf, uint8_t aLen, otNetifA
 
         SuccessOrExit(error = decoder.OpenStruct());
         SuccessOrExit(error = decoder.ReadIp6Address(addr));
-        cur->mAddress = *addr;
+        cur->mAddress = addr;
         SuccessOrExit(error = decoder.ReadUint8(prefixLength));
         cur->mPrefixLength = prefixLength;
         SuccessOrExit(error = decoder.ReadUint32(preferred));
         cur->mPreferred = preferred ? true : false;
         SuccessOrExit(error = decoder.ReadUint32(valid));
-        cur->mValid = valid ? true : false;
-        // TODO: workaround
-        cur->mScopeOverrideValid = false;
+        OT_UNUSED_VARIABLE(valid);
+
+        SuccessOrExit((error = decoder.CloseStruct()));
+        index++;
+    }
+
+exit:
+    aAddrNum = index;
+    return error;
+}
+
+otError NcpSpinel::ParseIp6UnicastAddresses(const uint8_t    *aBuf,
+                                            uint8_t           aLen,
+                                            otIp6AddressInfo *aAddressList,
+                                            uint8_t          &aAddrNum)
+{
+    otError             error = OT_ERROR_NONE;
+    ot::Spinel::Decoder decoder;
+    uint8_t             index = 0;
+
+    VerifyOrExit(aBuf != nullptr, error = OT_ERROR_INVALID_ARGS);
+
+    decoder.Init(aBuf, aLen);
+
+    while (!decoder.IsAllReadInStruct())
+    {
+        VerifyOrExit(index < aAddrNum, error = OT_ERROR_NO_BUFS);
+
+        otIp6AddressInfo   *cur = &aAddressList[index];
+        const otIp6Address *addr;
+        uint8_t             prefixLength;
+        uint8_t             scope;
+        bool                preferred;
+        bool                meshLocal;
+
+        SuccessOrExit(error = decoder.OpenStruct());
+        SuccessOrExit(error = decoder.ReadIp6Address(addr));
+        cur->mAddress = addr;
+        SuccessOrExit(error = decoder.ReadUint8(prefixLength));
+        cur->mPrefixLength = prefixLength;
+        SuccessOrExit(error = decoder.ReadUint8(scope));
+        cur->mScope = scope;
+        SuccessOrExit(error = decoder.ReadBool(preferred));
+        cur->mPreferred = preferred;
+        SuccessOrExit(error = decoder.ReadBool(meshLocal));
+        cur->mMeshLocal = meshLocal;
+
+        SuccessOrExit((error = decoder.CloseStruct()));
+        index++;
+    }
+
+exit:
+    aAddrNum = index;
+    return error;
+}
+
+otError NcpSpinel::ParseIp6MulticastAddresses(const uint8_t *aBuf,
+                                              uint8_t        aLen,
+                                              otIp6Address  *aAddressList,
+                                              uint8_t       &aAddrNum)
+{
+    otError             error = OT_ERROR_NONE;
+    ot::Spinel::Decoder decoder;
+    uint8_t             index = 0;
+
+    VerifyOrExit(aBuf != nullptr, error = OT_ERROR_INVALID_ARGS);
+
+    decoder.Init(aBuf, aLen);
+
+    while (!decoder.IsAllReadInStruct())
+    {
+        VerifyOrExit(index < aAddrNum, error = OT_ERROR_NO_BUFS);
+
+        otIp6Address       *cur = &aAddressList[index];
+        const otIp6Address *addr;
+
+        SuccessOrExit(error = decoder.OpenStruct());
+        SuccessOrExit(error = decoder.ReadIp6Address(addr));
+        memcpy(cur, addr, sizeof(otIp6Address));
 
         SuccessOrExit((error = decoder.CloseStruct()));
         index++;
