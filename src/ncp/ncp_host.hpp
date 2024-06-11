@@ -40,6 +40,7 @@
 #include "common/mainloop.hpp"
 #include "ncp/ncp_spinel.hpp"
 #include "ncp/thread_host.hpp"
+#include "posix/netif.hpp"
 
 namespace otbr {
 namespace Ncp {
@@ -82,6 +83,7 @@ private:
     ot::Spinel::SpinelDriver &mSpinelDriver;
     otPlatformConfig          mConfig;
     NcpSpinel                 mNcpSpinel;
+    Posix::Netif              mNetif;
 };
 
 } // namespace Ncp

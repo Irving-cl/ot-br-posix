@@ -31,6 +31,8 @@ add_library(otbr-ncp
     ncp_host.hpp
     ncp_spinel.cpp
     ncp_spinel.hpp
+    posix/netif.cpp
+    posix/netif.hpp
     rcp_host.cpp
     rcp_host.hpp
     thread_host.cpp
