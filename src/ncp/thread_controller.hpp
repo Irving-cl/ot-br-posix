@@ -72,14 +72,14 @@ public:
      * @param[in]   aDryRun                 TRUE to indicate dry-run mode. FALSE otherwise.
      * @param[in]   aEnableAutoAttach       Whether or not to automatically attach to the saved network.
      *
-     * @retval Non-null OpenThread Controller instance.
+     * @returns Non-null OpenThread Controller instance.
      *
      */
-    static std::unique_ptr<ThreadController> CreateInstance(const char                      *aInterfaceName,
-                                                            const std::vector<const char *> &aRadioUrls,
-                                                            const char                      *aBackboneInterfaceName,
-                                                            bool                             aDryRun,
-                                                            bool                             aEnableAutoAttach);
+    static std::unique_ptr<ThreadController> Create(const char                      *aInterfaceName,
+                                                    const std::vector<const char *> &aRadioUrls,
+                                                    const char                      *aBackboneInterfaceName,
+                                                    bool                             aDryRun,
+                                                    bool                             aEnableAutoAttach);
 
     /**
      * This method gets the device role and returns the role through the handler.

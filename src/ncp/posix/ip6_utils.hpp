@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024, The OpenThread Authors.
+ *  Copyright (c) 2024 The OpenThread Authors.
  *  All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
@@ -26,64 +26,52 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
- * @file
- *   This file includes definitions of OpenThead Controller for NCP.
- */
+#ifndef OTBR_AGENT_POSIX_IP6_UTILS_HPP_
+#define OTBR_AGENT_POSIX_IP6_UTILS_HPP_
 
-#ifndef OTBR_AGENT_NCP_HOST_HPP_
-#define OTBR_AGENT_NCP_HOST_HPP_
+#include <arpa/inet.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "lib/spinel/coprocessor_type.h"
-
-#include "ncp_spinel.hpp"
-#include "thread_controller.hpp"
-#include "common/mainloop.hpp"
-#include "posix/netif.hpp"
+#include "common/code_utils.hpp"
+#include "common/types.hpp"
 
 namespace otbr {
-namespace Ncp {
+namespace Posix {
+namespace Ip6Utils {
 
-class NcpHost : public MainloopProcessor, public ThreadController
+/**
+ * This utility class converts binary IPv6 address to text format.
+ *
+ */
+class Ip6AddressString
 {
 public:
     /**
-     * Constructor.
+     * The constructor of this converter.
      *
-     * @param[in]  aInterfaceName  A string of the NCP interface name.
-     *
-     */
-    NcpHost(const char *aInterfaceName);
-
-    /**
-     * Deconstructor.
+     * @param[in]   aAddress    A pointer to a buffer holding an IPv6 address.
      *
      */
-    ~NcpHost(void) override
-    { /* empty */
+    Ip6AddressString(const void *aAddress)
+    {
+        VerifyOrDie(inet_ntop(AF_INET6, aAddress, mBuffer, sizeof(mBuffer)) != nullptr, OTBR_ERROR_ERRNO);
     }
 
-    // Thread Controller methods
-    void GetDeviceRole(const DeviceRoleHandler aHandler) override;
-    void Join(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, const AsyncResultReceiver aReceiver) override;
-    void Leave(const AsyncResultReceiver aReceiver) override;
-    void ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
-                           const AsyncResultReceiver       aReceiver) override;
-    CoprocessorType GetCoprocessorType(void) override { return OT_COPROCESSOR_NCP; }
-    const char     *GetCoprocessorVersion(void) { return mNcpSpinel.GetCoprocessorVersion(); }
-    void            Init(void) override;
-    void            Deinit(void) override;
-
-    // MainloopProcessor methods
-    void Update(MainloopContext &aMainloop) override;
-    void Process(const MainloopContext &aMainloop) override;
+    /**
+     * Returns the string as a null-terminated C string.
+     *
+     * @returns The null-terminated C string.
+     *
+     */
+    const char *AsCString(void) const { return mBuffer; }
 
 private:
-    NcpSpinel    mNcpSpinel;
-    Posix::Netif mNetif;
+    char mBuffer[INET6_ADDRSTRLEN];
 };
 
-} // namespace Ncp
+} // namespace Ip6Utils
+} // namespace Posix
 } // namespace otbr
 
-#endif // OTBR_AGENT_NCP_HOST_HPP_
+#endif // OT_POSIX_PLATFORM_IP6_UTILS_HPP_

@@ -41,11 +41,11 @@
 namespace otbr {
 namespace Ncp {
 
-std::unique_ptr<ThreadController> ThreadController::CreateInstance(const char                      *aInterfaceName,
-                                                                   const std::vector<const char *> &aRadioUrls,
-                                                                   const char *aBackboneInterfaceName,
-                                                                   bool        aDryRun,
-                                                                   bool        aEnableAutoAttach)
+std::unique_ptr<ThreadController> ThreadController::Create(const char                      *aInterfaceName,
+                                                           const std::vector<const char *> &aRadioUrls,
+                                                           const char                      *aBackboneInterfaceName,
+                                                           bool                             aDryRun,
+                                                           bool                             aEnableAutoAttach)
 {
     CoprocessorType                   coprocessorType;
     otPlatformCoprocessorUrls         urls;
@@ -70,7 +70,7 @@ std::unique_ptr<ThreadController> ThreadController::CreateInstance(const char   
     }
     else if (coprocessorType == OT_COPROCESSOR_NCP)
     {
-        host = MakeUnique<NcpHost>();
+        host = MakeUnique<NcpHost>(aInterfaceName);
     }
     else
     {

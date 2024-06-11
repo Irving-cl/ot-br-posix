@@ -30,22 +30,34 @@
 
 #include "ncp_host.hpp"
 
+#include <functional>
+
 #include "posix/platform/spinel_driver_getter.hpp"
+
+#include "ncp/posix/netif.hpp"
 
 namespace otbr {
 namespace Ncp {
 
-NcpHost::NcpHost(void)
+NcpHost::NcpHost(const char *aInterfaceName)
+    : mNetif(aInterfaceName)
 {
 }
 
 void NcpHost::Init(void)
 {
     mNcpSpinel.Init(&ot::Posix::GetSpinelDriver());
+    mNetif.Init();
+
+    mNcpSpinel.Ip6SetAddressCallback(std::bind(&Posix::Netif::UpdateIp6Addresses, &mNetif, std::placeholders::_1));
+    mNcpSpinel.Ip6SetAddressMulticastCallback(
+        std::bind(&Posix::Netif::UpdateIp6MulticastAddresses, &mNetif, std::placeholders::_1));
+    mNcpSpinel.NetifSetStateChangedCallback(std::bind(&Posix::Netif::SetNetifState, &mNetif, std::placeholders::_1));
 }
 
 void NcpHost::Deinit(void)
 {
+    mNetif.Deinit();
     mNcpSpinel.Deinit();
 
     otSysDeinit();
@@ -123,6 +135,8 @@ void NcpHost::ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatase
 void NcpHost::Process(const MainloopContext &aMainloop)
 {
     ot::Posix::GetSpinelDriver().Process(&aMainloop);
+
+    mNetif.Process(&aMainloop);
 }
 
 void NcpHost::Update(MainloopContext &aMainloop)
@@ -134,6 +148,8 @@ void NcpHost::Update(MainloopContext &aMainloop)
         aMainloop.mTimeout.tv_sec  = 0;
         aMainloop.mTimeout.tv_usec = 0;
     }
+
+    mNetif.UpdateFdSet(&aMainloop);
 }
 
 } // namespace Ncp

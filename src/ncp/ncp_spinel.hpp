@@ -35,8 +35,10 @@
 #define OTBR_AGENT_NCP_SPINEL_HPP_
 
 #include <functional>
+#include <vector>
 
 #include <openthread/dataset.h>
+#include <openthread/ip6.h>
 #include <openthread/link.h>
 #include <openthread/thread.h>
 
@@ -55,8 +57,12 @@ namespace Ncp {
 class NcpSpinel
 {
 public:
-    using AsyncResultReceiver  = std::function<void(otError)>;
-    using GetDeviceRoleHandler = std::function<void(otError, otDeviceRole)>;
+    using AsyncResultReceiver              = std::function<void(otError)>;
+    using GetDeviceRoleHandler             = std::function<void(otError, otDeviceRole)>;
+    using Ip6AddressTableCallback          = std::function<void(const std::vector<otIp6AddressInfo> &)>;
+    using Ip6MulticastAddressTableCallback = std::function<void(const std::vector<otIp6Address> &)>;
+    using Ip6ReceiveCallback               = std::function<void(const uint8_t *, uint16_t)>;
+    using NetifStateChangedCallback        = std::function<void(bool)>;
 
     /**
      * Constructor.
@@ -124,6 +130,43 @@ public:
     void Ip6SetEnabled(bool aEnable, AsyncResultReceiver aReceiver);
 
     /**
+     * This method sets the callback to receive the IP6 address table from the NCP.
+     *
+     * @param[in] aCallback  The callback to handle the IP6 address table.
+     *
+     */
+    void Ip6SetAddressCallback(const Ip6AddressTableCallback &aCallback) { mIp6AddressTableCallback = aCallback; }
+
+    /**
+     * This method sets the callback to receive the IP6 multicast address table from the NCP.
+     *
+     * @param[in] aCallback  The callback to handle the IP6 address table.
+     *
+     */
+    void Ip6SetAddressMulticastCallback(const Ip6MulticastAddressTableCallback &aCallback)
+    {
+        mIp6MulticastAddressTableCallback = aCallback;
+    }
+
+    /**
+     * This method sets the callback to receive IP6 datagrams.
+     *
+     * @param[in] aCallback  The callback to receive IP6 datagrams.
+     *
+     */
+    void Ip6SetReceiveCallback(const Ip6ReceiveCallback &aCallback) { mIp6ReceiveCallback = aCallback; }
+
+    /**
+     * This methods sends an IP6 datagram.
+     *
+     * @param[in] aData      A pointer to the beginning of the IP6 datagram.
+     * @param[in] aLength    The length of the datagram.
+     * @param[in] aReceiver  A receiver to get the async result of this operation.
+     *
+     */
+    void Ip6Send(const uint8_t *aData, uint16_t aLength, const AsyncResultReceiver &aReceiver);
+
+    /**
      * This method enableds/disables the Thread network on the NCP.
      *
      * @param[in] aEnable  TRUE to enable and FALSE to disable.
@@ -145,6 +188,17 @@ public:
      *
      */
     void ThreadDetachGracefully(AsyncResultReceiver aReceiver);
+
+    /**
+     * This method sets the callback invoked when the network interface state changes.
+     *
+     * @param[in] aCallback  The callback invoked when the network interface state changes.
+     *
+     */
+    void NetifSetStateChangedCallback(const NetifStateChangedCallback &aCallback)
+    {
+        mNetifStateChangedCallback = aCallback;
+    }
 
 private:
     static constexpr uint8_t kMaxTids = 16;
@@ -169,7 +223,15 @@ private:
     void GetFlagsFromSecurityPolicy(const otSecurityPolicy *aSecurityPolicy, uint8_t *aFlags, uint8_t aFlagsLength);
     otDeviceRole GetDeviceRoleFromSpinelNetRole(const spinel_net_role_t aRole);
 
-    otError ParseIp6Addresses(const uint8_t *aBuf, uint8_t aLen, otNetifAddress *aAddressList, uint8_t &aAddrNum);
+    otError ParseIp6Addresses(const uint8_t *aBuf, uint8_t aLen, otIp6AddressInfo *aAddressList, uint8_t &aAddrNum);
+    otError ParseIp6UnicastAddresses(const uint8_t    *aBuf,
+                                     uint8_t           aLen,
+                                     otIp6AddressInfo *aAddressList,
+                                     uint8_t          &aAddrNum);
+    otError ParseIp6MulticastAddresses(const uint8_t *aBuf,
+                                       uint8_t        aLen,
+                                       otIp6Address  *aAddressList,
+                                       uint8_t       &aAddrNum);
 
     ot::Spinel::SpinelDriver *mSpinelDriver;
     uint16_t                  mCmdTidsInUse;              ///< Used transaction ids.
@@ -183,6 +245,12 @@ private:
     AsyncResultReceiver  mIp6SetEnabledResultReceiver;
     AsyncResultReceiver  mThreadSetEnabledResultReceiver;
     AsyncResultReceiver  mThreadDetachGracefullyReceiver;
+
+    Ip6ReceiveCallback               mIp6ReceiveCallback;
+    Ip6AddressTableCallback          mIp6AddressTableCallback;
+    Ip6MulticastAddressTableCallback mIp6MulticastAddressTableCallback;
+
+    NetifStateChangedCallback mNetifStateChangedCallback;
 };
 
 } // namespace Ncp
