@@ -31,8 +31,8 @@
  * This file includes definitions for the d-bus object of OpenThread service.
  */
 
-#ifndef OTBR_DBUS_THREAD_OBJECT_HPP_
-#define OTBR_DBUS_THREAD_OBJECT_HPP_
+#ifndef OTBR_DBUS_THREAD_OBJECT_RCP_HPP_
+#define OTBR_DBUS_THREAD_OBJECT_RCP_HPP_
 
 #include "openthread-br/config.h"
 
@@ -58,9 +58,7 @@ namespace DBus {
  *
  */
 
-class DBusAgent;
-
-class DBusThreadObject : public DBusObject
+class DBusThreadObjectRcp : public DBusObject
 {
 public:
     /**
@@ -72,10 +70,10 @@ public:
      * @param[in] aPublisher      The Mdns::Publisher
      *
      */
-    DBusThreadObject(DBusConnection     *aConnection,
-                     const std::string  &aInterfaceName,
-                     otbr::Ncp::RcpHost *aHost,
-                     Mdns::Publisher    *aPublisher);
+    DBusThreadObjectRcp(DBusConnection     &aConnection,
+                        const std::string  &aInterfaceName,
+                        otbr::Ncp::RcpHost &aHost,
+                        Mdns::Publisher    *aPublisher);
 
     otbrError Init(void) override;
 
@@ -179,7 +177,7 @@ private:
     void ReplyScanResult(DBusRequest &aRequest, otError aError, const std::vector<otActiveScanResult> &aResult);
     void ReplyEnergyScanResult(DBusRequest &aRequest, otError aError, const std::vector<otEnergyScanResult> &aResult);
 
-    otbr::Ncp::RcpHost                                  *mHost;
+    otbr::Ncp::RcpHost                                  &mHost;
     std::unordered_map<std::string, PropertyHandlerType> mGetPropertyHandlers;
     otbr::Mdns::Publisher                               *mPublisher;
 };
@@ -187,4 +185,4 @@ private:
 } // namespace DBus
 } // namespace otbr
 
-#endif // OTBR_DBUS_THREAD_OBJECT_HPP_
+#endif // OTBR_DBUS_THREAD_OBJECT_RCP_HPP_

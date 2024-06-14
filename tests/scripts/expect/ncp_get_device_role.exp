@@ -1,0 +1,23 @@
+#!/usr/bin/expect -f
+
+set timeout 1
+
+spawn $::env(EXP_OTBR_AGENT_PATH) -I $::env(EXP_TUN_NAME) -v -d7 "spinel+hdlc+forkpty://$::env(EXP_OT_NCP_PATH)?forkpty-arg=$::env(EXP_LEADER_NODE_ID)"
+
+set otbr_id $spawn_id
+sleep 1
+
+spawn dbus-send --system --dest=io.openthread.BorderRouter.wpan0 --print-reply --reply-timeout=1000 /io/openthread/BorderRouter/wpan0 org.freedesktop.DBus.Properties.Get string:io.openthread.BorderRouter string:DeviceRole
+
+expect -re {NotImplemented} {
+} timeout {
+    puts "timeout!"
+    exit 1
+}
+
+expect eof
+
+# Shut down otbr-agent
+set spawn_id $otbr_id
+send "\x04"
+expect eof
