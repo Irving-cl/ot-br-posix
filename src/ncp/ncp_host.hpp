@@ -40,6 +40,7 @@
 #include "common/mainloop.hpp"
 #include "ncp/ncp_spinel.hpp"
 #include "ncp/thread_host.hpp"
+#include "posix/infra_if.hpp"
 #include "posix/netif.hpp"
 
 namespace otbr {
@@ -51,11 +52,12 @@ public:
     /**
      * Constructor.
      *
-     * @param[in]   aInterfaceName  A string of the NCP interface name.
-     * @param[in]   aDryRun         TRUE to indicate dry-run mode. FALSE otherwise.
+     * @param[in]   aInterfaceName          A string of the NCP interface name.
+     * @param[in]   aBackboneInterfaceName  The Backbone network interface name.
+     * @param[in]   aDryRun                 TRUE to indicate dry-run mode. FALSE otherwise.
      *
      */
-    NcpHost(const char *aInterfaceName, bool aDryRun);
+    NcpHost(const char *aInterfaceName, const char *aBackboneInterfaceName, bool aDryRun);
 
     /**
      * Destructor.
@@ -84,6 +86,7 @@ private:
     otPlatformConfig          mConfig;
     NcpSpinel                 mNcpSpinel;
     Posix::Netif              mNetif;
+    Posix::InfraIf            mInfraIf;
 };
 
 } // namespace Ncp

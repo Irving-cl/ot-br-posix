@@ -63,6 +63,7 @@ public:
     using Ip6MulticastAddressTableCallback = std::function<void(const std::vector<otIp6Address> &)>;
     using Ip6ReceiveCallback               = std::function<void(const uint8_t *, uint16_t)>;
     using NetifStateChangedCallback        = std::function<void(bool)>;
+    using InfraIfIcmp6NdSender = std::function<void(uint32_t, const otIp6Address &, const uint8_t *, uint16_t)>;
 
     /**
      * Constructor.
@@ -200,6 +201,63 @@ public:
         mNetifStateChangedCallback = aCallback;
     }
 
+    /**
+     * This method initializes the border routing manager on the NCP.
+     *
+     * @param[in] aInfraIfIndex  The index of the infra network interface on the host.
+     * @param[in] aIsRunning     If the Infra network interface is running.
+     * @param[in] aReceiver      A receiver to get the async result of this operation.
+     *
+     */
+    void BorderRoutingInit(uint32_t aInfraIfIndex, bool aIsRunning, AsyncResultReceiver aReceiver);
+
+    /**
+     * This method enables or disables the border routing manager on the NCP.
+     *
+     * @param[in] aEnabled   A boolean to enable/disable the routing manager.
+     * @param[in] aReceiver  A receiver to get the async result of this operation.
+     *
+     */
+    void BorderRoutingSetEnabled(bool aEnabled, AsyncResultReceiver aReceiver);
+
+    /**
+     * This method notifies the NCP the state change of the infra network interface.
+     *
+     * @param[in] aInfraIfIndex  The index of the infra network interface on the host.
+     * @param[in] aIsRunning     If the Infra network interface is running.
+     * @param[in] aReceiver      A receiver to get the async result of this operation.
+     *
+     */
+    void InfraIfStateChange(uint32_t aInfraIfIndex, bool aIsRunning, AsyncResultReceiver aReceiver);
+
+    /**
+     * This method passthroughs the ICMPv6 Neighbor Discovery message received from
+     * the infra interface to the NCP.
+     *
+     * See RFC 4861: https://tools.ietf.org/html/rfc4861.
+     *
+     * @param[in]  aInfraIfIndex  The index of the infrastructure interface on which the ICMPv6 message is received.
+     * @param[in]  aSrcAddress    The source address this message is received from.
+     * @param[in]  aBuffer        The ICMPv6 message buffer.
+     * @param[in]  aBufferLength  The length of the ICMPv6 message buffer.
+     *
+     * @note  Per RFC 4861, the caller should enforce that the source address MUST be a IPv6 link-local
+     *        address and the IP Hop Limit MUST be 255.
+     *
+     */
+    void InfraIfRecvIcmp6Nd(uint32_t       aInfraIfIndex,
+                            otIp6Address  &aIp6Address,
+                            const uint8_t *aBuffer,
+                            uint16_t       aBufferLength);
+
+    /**
+     * This method sets the function to send an Icmp6 ND message on the infrastructure link.
+     *
+     * @param[in] aSender  The sender function to send an Icmp6 ND message on the infrastructure link.
+     *
+     */
+    void InfraIfSetIcmp6NdSender(const InfraIfIcmp6NdSender &aSender) { mInfraIfIcmp6NdSender = aSender; }
+
 private:
     static constexpr uint8_t kMaxTids           = 16;
     static constexpr size_t  kMaxDatagramLength = 1280;
@@ -246,15 +304,21 @@ private:
     AsyncResultReceiver  mIp6SetEnabledResultReceiver;
     AsyncResultReceiver  mThreadSetEnabledResultReceiver;
     AsyncResultReceiver  mThreadDetachGracefullyReceiver;
+    AsyncResultReceiver  mBorderRoutingInitReceiver;
+    AsyncResultReceiver  mBorderRoutingSetEnabledReceiver;
+    AsyncResultReceiver  mInfraIfStateChangeReceiver;
 
     Ip6ReceiveCallback               mIp6ReceiveCallback;
     Ip6AddressTableCallback          mIp6AddressTableCallback;
     Ip6MulticastAddressTableCallback mIp6MulticastAddressTableCallback;
+    InfraIfIcmp6NdSender             mInfraIfIcmp6NdSender;
 
     NetifStateChangedCallback mNetifStateChangedCallback;
 
     uint8_t  mIpDatagramRecv[kMaxDatagramLength];
     uint16_t mIpDatagramRecvLength;
+    uint8_t  mIcmp6Datagram[kMaxDatagramLength];
+    uint16_t mIcmp6DatagramLength;
 };
 
 } // namespace Ncp

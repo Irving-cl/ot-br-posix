@@ -258,6 +258,84 @@ void NcpSpinel::ThreadDetachGracefully(AsyncResultReceiver aReceiver)
     }
 }
 
+void NcpSpinel::BorderRoutingInit(uint32_t aInfraIfIndex, bool aIsRunning, AsyncResultReceiver aReceiver)
+{
+    otError error = OT_ERROR_NONE;
+    // static constexpr char kPropFormat[] = {SPINEL_DATATYPE_UINT32_C, SPINEL_DATATYPE_BOOL_C};
+
+    if (mBorderRoutingInitReceiver == nullptr)
+    {
+        error = SetProperty(SPINEL_PROP_BORDER_ROUTING_INIT, SPINEL_DATATYPE_UINT32_S SPINEL_DATATYPE_BOOL_S,
+                            aInfraIfIndex, aIsRunning);
+    }
+
+    if (error == OT_ERROR_NONE)
+    {
+        mBorderRoutingInitReceiver = aReceiver;
+    }
+    else
+    {
+        aReceiver(error);
+    }
+}
+
+void NcpSpinel::BorderRoutingSetEnabled(bool aEnabled, AsyncResultReceiver aReceiver)
+{
+    otError error = OT_ERROR_NONE;
+
+    if (mBorderRoutingSetEnabledReceiver == nullptr)
+    {
+        error = SetProperty(SPINEL_PROP_BORDER_ROUTING_ENABLE, SPINEL_DATATYPE_BOOL_S, aEnabled);
+    }
+
+    if (error == OT_ERROR_NONE)
+    {
+        mBorderRoutingSetEnabledReceiver = aReceiver;
+    }
+    else
+    {
+        aReceiver(error);
+    }
+}
+
+void NcpSpinel::InfraIfStateChange(uint32_t aInfraIfIndex, bool aIsRunning, AsyncResultReceiver aReceiver)
+{
+    otError error = OT_ERROR_NONE;
+
+    if (mInfraIfStateChangeReceiver == nullptr)
+    {
+        error = SetProperty(SPINEL_PROP_INFRA_IF_STATE, SPINEL_DATATYPE_UINT32_S SPINEL_DATATYPE_BOOL_S, aInfraIfIndex,
+                            aIsRunning);
+    }
+
+    if (error == OT_ERROR_NONE)
+    {
+        mInfraIfStateChangeReceiver = aReceiver;
+    }
+    else
+    {
+        aReceiver(error);
+    }
+}
+
+void NcpSpinel::InfraIfRecvIcmp6Nd(uint32_t       aInfraIfIndex,
+                                   otIp6Address  &aIp6Address,
+                                   const uint8_t *aBuffer,
+                                   uint16_t       aBufferLength)
+{
+    otError error;
+
+    otbrLogInfo("!!! Recv Icmp6 Nd");
+    error = SetProperty(SPINEL_PROP_INFRA_IF_RECV_ICMP6_ND,
+                        SPINEL_DATATYPE_UINT32_S SPINEL_DATATYPE_IPv6ADDR_S SPINEL_DATATYPE_DATA_WLEN_S, aInfraIfIndex,
+                        &aIp6Address, aBuffer, aBufferLength);
+
+    if (error != OT_ERROR_NONE)
+    {
+        otbrLogWarning("Failed to passthrough ICMP6 ND to NCP, %s", otThreadErrorToString(error));
+    }
+}
+
 void NcpSpinel::HandleReceivedFrame(const uint8_t *aFrame,
                                     uint16_t       aLength,
                                     uint8_t        aHeader,
@@ -419,6 +497,34 @@ void NcpSpinel::HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_
             otbrLogCrit("No Receiver is set for ThreadSetEnabled");
         }
     }
+    else if (mWaitingKeyTable[aTid] == SPINEL_PROP_BORDER_ROUTING_INIT)
+    {
+        if (mBorderRoutingInitReceiver)
+        {
+            mBorderRoutingInitReceiver(OT_ERROR_NONE);
+            mBorderRoutingInitReceiver = nullptr;
+        }
+        else
+        {
+            otbrLogCrit("No Receiver is set for BorderRoutingInit");
+        }
+    }
+    else if (mWaitingKeyTable[aTid] == SPINEL_PROP_BORDER_ROUTING_ENABLE)
+    {
+        if (mBorderRoutingSetEnabledReceiver)
+        {
+            mBorderRoutingSetEnabledReceiver(OT_ERROR_NONE);
+            mBorderRoutingSetEnabledReceiver = nullptr;
+        }
+        else
+        {
+            otbrLogCrit("No Receiver is set for BorderRoutingSetEnabled");
+        }
+    }
+    else if (mWaitingKeyTable[aTid] == SPINEL_PROP_INFRA_IF_RECV_ICMP6_ND)
+    {
+        otbrLogInfo("InfraIf passthrough ICMP6 ND");
+    }
 
 exit:
     FreeTid(aTid);
@@ -542,6 +648,25 @@ otbrError NcpSpinel::HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffe
         if (mIp6ReceiveCallback)
         {
             mIp6ReceiveCallback(mIpDatagramRecv, mIpDatagramRecvLength);
+        }
+        break;
+    }
+
+    case SPINEL_PROP_INFRA_IF_SEND_ICMP6_ND:
+    {
+        uint32_t     infraIfIndex;
+        otIp6Address destAddress;
+        mIcmp6DatagramLength = sizeof(mIcmp6Datagram);
+
+        unpacked = spinel_datatype_unpack_in_place(
+            aBuffer, aLength, SPINEL_DATATYPE_UINT32_S SPINEL_DATATYPE_IPv6ADDR_S SPINEL_DATATYPE_DATA_WLEN_S,
+            &infraIfIndex, &destAddress, &mIcmp6Datagram[0], &mIcmp6DatagramLength);
+
+        VerifyOrExit(unpacked > 0, error = OTBR_ERROR_PARSE);
+
+        if (mInfraIfIcmp6NdSender)
+        {
+            mInfraIfIcmp6NdSender(infraIfIndex, destAddress, mIcmp6Datagram, mIcmp6DatagramLength);
         }
         break;
     }

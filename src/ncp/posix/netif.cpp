@@ -418,24 +418,6 @@ exit:
     }
 }
 
-int Netif::SocketWithCloseExec(int aDomain, int aType, int aProtocol, SocketBlockOption aBlockOption)
-{
-    int rval = 0;
-    int fd   = -1;
-
-    aType |= aBlockOption == kSocketNonBlock ? SOCK_CLOEXEC | SOCK_NONBLOCK : SOCK_CLOEXEC;
-    VerifyOrExit((fd = socket(aDomain, aType, aProtocol)) != -1, perror("socket(SOCK_CLOEXEC)"));
-
-exit:
-    if (rval == -1)
-    {
-        VerifyOrDie(close(fd) == 0, strerror(errno));
-        fd = -1;
-    }
-
-    return fd;
-}
-
 void Netif::ConfigureNetLink(void)
 {
     mNetlinkFd = SocketWithCloseExec(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE, kSocketNonBlock);

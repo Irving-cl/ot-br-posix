@@ -87,6 +87,7 @@ enum otbrError
     OTBR_ERROR_ABORTED            = -12, ///< The operation is aborted.
     OTBR_ERROR_INVALID_STATE      = -13, ///< The target isn't in a valid state.
     OTBR_ERROR_INFRA_LINK_CHANGED = -14, ///< The infrastructure link is changed.
+    OTBR_ERROR_DROP               = -15, ///< Packet dropped error.
 };
 
 namespace otbr {

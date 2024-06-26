@@ -44,14 +44,16 @@
 namespace otbr {
 namespace Ncp {
 
-NcpHost::NcpHost(const char *aInterfaceName, bool aDryRun)
+NcpHost::NcpHost(const char *aInterfaceName, const char *aBackboneInterfaceName, bool aDryRun)
     : mSpinelDriver(*static_cast<ot::Spinel::SpinelDriver *>(otSysGetSpinelDriver()))
     , mNetif(aInterfaceName, mNcpSpinel)
+    , mInfraIf(mNcpSpinel)
 {
     memset(&mConfig, 0, sizeof(mConfig));
-    mConfig.mInterfaceName = aInterfaceName;
-    mConfig.mDryRun        = aDryRun;
-    mConfig.mSpeedUpFactor = 1;
+    mConfig.mInterfaceName         = aInterfaceName;
+    mConfig.mBackboneInterfaceName = aBackboneInterfaceName;
+    mConfig.mDryRun                = aDryRun;
+    mConfig.mSpeedUpFactor         = 1;
 }
 
 const char *NcpHost::GetCoprocessorVersion(void)
@@ -65,6 +67,7 @@ void NcpHost::Init(void)
     mNcpSpinel.Init(&mSpinelDriver);
 
     mNetif.Init();
+    mInfraIf.Init();
 
     mNcpSpinel.Ip6SetAddressCallback(std::bind(&Posix::Netif::UpdateIp6Addresses, &mNetif, std::placeholders::_1));
     mNcpSpinel.Ip6SetAddressMulticastCallback(
@@ -72,11 +75,22 @@ void NcpHost::Init(void)
     mNcpSpinel.Ip6SetReceiveCallback(
         std::bind(&Posix::Netif::ReceiveIp6, &mNetif, std::placeholders::_1, std::placeholders::_2));
     mNcpSpinel.NetifSetStateChangedCallback(std::bind(&Posix::Netif::SetNetifState, &mNetif, std::placeholders::_1));
+    mNcpSpinel.InfraIfSetIcmp6NdSender(std::bind(&Posix::InfraIf::SendIcmp6Nd, &mInfraIf, std::placeholders::_1,
+                                                 std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+
+    if (mConfig.mBackboneInterfaceName != nullptr && strlen(mConfig.mBackboneInterfaceName) > 0)
+    {
+        int icmp6Sock = -1;
+        icmp6Sock     = Posix::InfraIf::CreateIcmp6Socket(mConfig.mBackboneInterfaceName);
+        mInfraIf.SetInfraNetif(mConfig.mBackboneInterfaceName, icmp6Sock);
+    }
+    mInfraIf.SetUp();
 }
 
 void NcpHost::Deinit(void)
 {
     mNetif.Deinit();
+    mInfraIf.Deinit();
     mNcpSpinel.Deinit();
     otSysDeinit();
 }
@@ -154,6 +168,7 @@ void NcpHost::Process(const MainloopContext &aMainloop)
 {
     mSpinelDriver.Process(&aMainloop);
 
+    mInfraIf.Process(aMainloop);
     mNetif.Process(&aMainloop);
 }
 
@@ -167,6 +182,7 @@ void NcpHost::Update(MainloopContext &aMainloop)
         aMainloop.mTimeout.tv_usec = 0;
     }
 
+    mInfraIf.UpdateFdSet(aMainloop);
     mNetif.UpdateFdSet(&aMainloop);
 }
 

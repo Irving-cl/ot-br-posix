@@ -49,6 +49,7 @@
 
 #include "common/mainloop.hpp"
 #include "ncp/ncp_spinel.hpp"
+#include "ncp/posix/utils.hpp"
 
 namespace otbr {
 namespace Posix {
@@ -127,12 +128,6 @@ public:
     void SetNetifState(bool aState);
 
 private:
-    enum SocketBlockOption
-    {
-        kSocketBlock,
-        kSocketNonBlock,
-    };
-
     struct Ip6AddressInfo
     {
         Ip6AddressInfo(const otIp6AddressInfo &aInfo)
@@ -158,17 +153,16 @@ private:
 
     static bool CompareIp6Address(const otIp6Address &aObj1, const otIp6Address &aObj2);
 
-    static int SocketWithCloseExec(int aDomain, int aType, int aProtocol, SocketBlockOption aBlockOption);
-    void       ConfigureNetLink(void);
-    void       ConfigureTunDevice(void);
-    void       SetAddrGenModeToNone(void);
-    void       ProcessAddressChange(const Ip6AddressInfo &aAddressInfo, bool aIsAdded);
-    void       UpdateUnicast(const Ip6AddressInfo &aAddressInfo, bool aIsAdded);
-    void       UpdateMulticast(const otIp6Address &aAddress, bool aIsAdded);
-    void       UpdateUnicastLinux(const Ip6AddressInfo &aAddressInfo, bool aIsAdded);
-    void       ProcessTransmit(void);
-    void       ProcessNetlinkEvent(void);
-    void       HandleNetlinkResponse(struct nlmsghdr *msg);
+    void ConfigureNetLink(void);
+    void ConfigureTunDevice(void);
+    void SetAddrGenModeToNone(void);
+    void ProcessAddressChange(const Ip6AddressInfo &aAddressInfo, bool aIsAdded);
+    void UpdateUnicast(const Ip6AddressInfo &aAddressInfo, bool aIsAdded);
+    void UpdateMulticast(const otIp6Address &aAddress, bool aIsAdded);
+    void UpdateUnicastLinux(const Ip6AddressInfo &aAddressInfo, bool aIsAdded);
+    void ProcessTransmit(void);
+    void ProcessNetlinkEvent(void);
+    void HandleNetlinkResponse(struct nlmsghdr *msg);
 
     const char *mInterfaceName;
 
