@@ -144,6 +144,7 @@ with BORDER_ROUTING && with DHCPV6_PD && die "BORDER_ROUTING and DHCPV6_PD canno
 # OTBR cannot receive RS messages when NETWORK_MANAGER is enabled.
 with BORDER_ROUTING && with NETWORK_MANAGER && die "BORDER_ROUTING and NETWORK_MANAGER cannot coexist!"
 
+PROJECT_ROOT_DIR=$PWD
 STAGE_DIR=$PWD/stage
 BUILD_DIR=$PWD/build
 

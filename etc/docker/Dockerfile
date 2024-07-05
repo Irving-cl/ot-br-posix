@@ -112,6 +112,7 @@ RUN ([ "${DNS64}" = "0" ] || chmod 644 /etc/bind/named.conf.options) \
     && rm -rf /tmp/* \
   ))
 
+# Radio URL argument
 ENTRYPOINT ["/app/etc/docker/docker_entrypoint.sh"]
 
 EXPOSE 80
