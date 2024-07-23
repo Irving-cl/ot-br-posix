@@ -36,7 +36,9 @@
 
 #include "common/code_utils.hpp"
 #include "common/logging.hpp"
+#include "common/types.hpp"
 #include "lib/spinel/spinel.h"
+#include "lib/spinel/spinel_decoder.hpp"
 #include "lib/spinel/spinel_driver.hpp"
 
 namespace otbr {
@@ -50,6 +52,8 @@ NcpSpinel::NcpSpinel(void)
     , mCmdNextTid(1)
     , mDeviceRole(OT_DEVICE_ROLE_DISABLED)
     , mGetDeviceRoleHandler(nullptr)
+    , mIp6UnicastAddressTableCallback(nullptr)
+    , mIp6MulticastAddressTableCallback(nullptr)
 {
     memset(mWaitingKeyTable, 0xff, sizeof(mWaitingKeyTable));
 }
@@ -233,6 +237,30 @@ void NcpSpinel::HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, ui
         break;
     }
 
+    case SPINEL_PROP_IPV6_ADDRESS_TABLE:
+    {
+        std::vector<otIp6AddressInfo> addresses;
+        SuccessOrExit(error = otErrorToOtbrError(ParseIp6Addresses(aBuffer, aLength, addresses)));
+
+        if (mIp6UnicastAddressTableCallback)
+        {
+            mIp6UnicastAddressTableCallback(addresses);
+        }
+        break;
+    }
+
+    case SPINEL_PROP_IPV6_MULTICAST_ADDRESS_TABLE:
+    {
+        std::vector<otIp6Address> addresses;
+        SuccessOrExit(error = otErrorToOtbrError(ParseIp6MulticastAddresses(aBuffer, aLength, addresses)));
+
+        if (mIp6MulticastAddressTableCallback)
+        {
+            mIp6MulticastAddressTableCallback(addresses);
+        }
+        break;
+    }
+
     default:
         break;
     }
@@ -264,6 +292,67 @@ spinel_tid_t NcpSpinel::GetNextTid(void)
 
 exit:
     return tid;
+}
+
+otError NcpSpinel::ParseIp6Addresses(const uint8_t *aBuf, uint8_t aLen, std::vector<otIp6AddressInfo> &aAddresses)
+{
+    otError             error = OT_ERROR_NONE;
+    ot::Spinel::Decoder decoder;
+
+    VerifyOrExit(aBuf != nullptr, error = OT_ERROR_INVALID_ARGS);
+
+    decoder.Init(aBuf, aLen);
+
+    while (!decoder.IsAllReadInStruct())
+    {
+        otIp6AddressInfo    addrInfo;
+        const otIp6Address *addr;
+        uint8_t             prefixLength;
+        uint32_t            preferred;
+        uint32_t            valid;
+
+        SuccessOrExit(error = decoder.OpenStruct());
+        SuccessOrExit(error = decoder.ReadIp6Address(addr));
+        addrInfo.mAddress = addr;
+        SuccessOrExit(error = decoder.ReadUint8(prefixLength));
+        addrInfo.mPrefixLength = prefixLength;
+        SuccessOrExit(error = decoder.ReadUint32(preferred));
+        addrInfo.mPreferred = preferred ? true : false;
+        SuccessOrExit(error = decoder.ReadUint32(valid));
+        OT_UNUSED_VARIABLE(valid);
+        SuccessOrExit((error = decoder.CloseStruct()));
+
+        aAddresses.push_back(addrInfo);
+    }
+
+exit:
+    return error;
+}
+
+otError NcpSpinel::ParseIp6MulticastAddresses(const uint8_t *aBuf, uint8_t aLen, std::vector<otIp6Address> &aAddresses)
+{
+    otError             error = OT_ERROR_NONE;
+    ot::Spinel::Decoder decoder;
+
+    VerifyOrExit(aBuf != nullptr, error = OT_ERROR_INVALID_ARGS);
+
+    decoder.Init(aBuf, aLen);
+
+    while (!decoder.IsAllReadInStruct())
+    {
+        otIp6Address        cur;
+        const otIp6Address *addr;
+
+        SuccessOrExit(error = decoder.OpenStruct());
+        SuccessOrExit(error = decoder.ReadIp6Address(addr));
+        memcpy(&cur, addr, sizeof(otIp6Address));
+        SuccessOrExit((error = decoder.CloseStruct()));
+
+        aAddresses.emplace_back(cur);
+    }
+
+exit:
+    return error;
 }
 
 otDeviceRole NcpSpinel::SpinelRoleToDeviceRole(spinel_net_role_t aRole)

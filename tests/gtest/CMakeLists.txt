@@ -48,6 +48,7 @@ add_executable(otbr-gtest-unit
     test_common_types.cpp
     test_dns_utils.cpp
     test_logging.cpp
+    test_netif.cpp
     test_once_callback.cpp
     test_pskc.cpp
     test_task_runner.cpp
@@ -55,6 +56,7 @@ add_executable(otbr-gtest-unit
 target_link_libraries(otbr-gtest-unit
     mbedtls
     otbr-common
+    otbr-ncp
     otbr-utils
     GTest::gmock_main
 )

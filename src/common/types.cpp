@@ -206,4 +206,46 @@ otError OtbrErrorToOtError(otbrError aError)
     return error;
 }
 
+otbrError otErrorToOtbrError(otError aError)
+{
+    otbrError error;
+
+    switch (aError)
+    {
+    case OT_ERROR_NONE:
+        error = OTBR_ERROR_NONE;
+        break;
+
+    case OT_ERROR_NOT_FOUND:
+        error = OTBR_ERROR_NOT_FOUND;
+        break;
+
+    case OT_ERROR_PARSE:
+        error = OTBR_ERROR_PARSE;
+        break;
+
+    case OT_ERROR_NOT_IMPLEMENTED:
+        error = OTBR_ERROR_NOT_IMPLEMENTED;
+        break;
+
+    case OT_ERROR_INVALID_ARGS:
+        error = OTBR_ERROR_INVALID_ARGS;
+        break;
+
+    case OT_ERROR_DUPLICATED:
+        error = OTBR_ERROR_DUPLICATED;
+        break;
+
+    case OT_ERROR_INVALID_STATE:
+        error = OTBR_ERROR_INVALID_STATE;
+        break;
+
+    default:
+        error = OTBR_ERROR_GENERIC;
+        break;
+    }
+
+    return error;
+}
+
 } // namespace otbr

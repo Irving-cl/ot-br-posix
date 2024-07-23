@@ -26,74 +26,49 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define OTBR_LOG_TAG "NCP_HOST"
+/**
+ * @file
+ *   This file includes an abstraction of POSIX APIs that are required by otbr-agent platform code.
+ */
 
-#include "ncp_host.hpp"
+#ifndef OTBR_AGENT_POSIX_APIS_HPP_
+#define OTBR_AGENT_POSIX_APIS_HPP_
 
-#include <openthread/error.h>
-#include <openthread/thread.h>
-
-#include <openthread/openthread-system.h>
-
-#include "lib/spinel/spinel_driver.hpp"
+#include <sys/socket.h>
 
 namespace otbr {
-namespace Ncp {
+namespace Posix {
 
-NcpHost::NcpHost(const char *aInterfaceName, bool aDryRun)
-    : mSpinelDriver(*static_cast<ot::Spinel::SpinelDriver *>(otSysGetSpinelDriver()))
-    , mNetif(aInterfaceName)
+enum SocketBlockOption
 {
-    memset(&mConfig, 0, sizeof(mConfig));
-    mConfig.mInterfaceName = aInterfaceName;
-    mConfig.mDryRun        = aDryRun;
-    mConfig.mSpeedUpFactor = 1;
-}
+    kSocketBlock,
+    kSocketNonBlock,
+};
 
-const char *NcpHost::GetCoprocessorVersion(void)
+class PosixApis
 {
-    return mSpinelDriver.GetVersion();
-}
+public:
 
-void NcpHost::Init(void)
-{
-    otSysInit(&mConfig);
-    mNcpSpinel.Init(mSpinelDriver);
+    virtual int SocketWithCloseExec(int aDomain, int aType, int aProtocol, SocketBlockOption aBlockOption) = 0;
 
-    mNetif.Init();
+    virtual int SetSockOpt(int aFd, int aLevel, int aOptName, const void *aOptVal, socklen_t aOptlen) = 0;
 
-    mNcpSpinel.Ip6SetAddressCallback(std::bind(&Posix::Netif::UpdateIp6Addresses, &mNetif, std::placeholders::_1));
-    mNcpSpinel.Ip6SetAddressMulticastCallback(
-        std::bind(&Posix::Netif::UpdateIp6MulticastAddresses, &mNetif, std::placeholders::_1));
-}
+    virtual int Open(const char *aFile, int aFlag) = 0;
 
-void NcpHost::Deinit(void)
-{
-    mNetif.Deinit();
-    mNcpSpinel.Deinit();
-    otSysDeinit();
-}
+    virtual int Close(int aFd) = 0;
 
-void NcpHost::GetDeviceRole(DeviceRoleHandler aHandler)
-{
-    mNcpSpinel.GetDeviceRole(aHandler);
-}
+    virtual int Bind(int aFd, const sockaddr *aAddr, socklen_t aLen) = 0;
 
-void NcpHost::Process(const MainloopContext &aMainloop)
-{
-    mSpinelDriver.Process(&aMainloop);
-}
+    virtual ssize_t Send(int aFd, const void *aBuf, size_t aN, int aFlags) = 0;
+    
+    virtual ssize_t Recv(int aFd, void *aBuf, size_t aN, int aFlags) = 0;
 
-void NcpHost::Update(MainloopContext &aMainloop)
-{
-    mSpinelDriver.GetSpinelInterface()->UpdateFdSet(&aMainloop);
+    virtual int Ioctl(int aFd, unsigned long aOp, void *aArg) = 0;
+    
+    virtual int Fcntl(int aFd, int aCmd, int aVal) = 0;
+};
 
-    if (mSpinelDriver.HasPendingFrame())
-    {
-        aMainloop.mTimeout.tv_sec  = 0;
-        aMainloop.mTimeout.tv_usec = 0;
-    }
-}
-
-} // namespace Ncp
+} // namespace Posix
 } // namespace otbr
+
+#endif // OTBR_AGENT_POSIX_APIS_HPP_

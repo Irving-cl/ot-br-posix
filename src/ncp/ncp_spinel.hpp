@@ -35,9 +35,11 @@
 #define OTBR_AGENT_NCP_SPINEL_HPP_
 
 #include <functional>
+#include <vector>
 
 #include <openthread/dataset.h>
 #include <openthread/error.h>
+#include <openthread/ip6.h>
 #include <openthread/link.h>
 #include <openthread/thread.h>
 
@@ -56,7 +58,9 @@ namespace Ncp {
 class NcpSpinel
 {
 public:
-    using GetDeviceRoleHandler = std::function<void(otError, otDeviceRole)>;
+    using GetDeviceRoleHandler             = std::function<void(otError, otDeviceRole)>;
+    using Ip6UnicastAddressTableCallback   = std::function<void(const std::vector<otIp6AddressInfo> &)>;
+    using Ip6MulticastAddressTableCallback = std::function<void(const std::vector<otIp6Address> &)>;
 
     /**
      * Constructor.
@@ -95,6 +99,28 @@ public:
      */
     void GetDeviceRole(GetDeviceRoleHandler aHandler);
 
+    /**
+     * This method sets the callback to receive the IP6 address table from the NCP.
+     *
+     * @param[in] aCallback  The callback to handle the IP6 address table.
+     *
+     */
+    void Ip6SetAddressCallback(const Ip6UnicastAddressTableCallback &aCallback)
+    {
+        mIp6UnicastAddressTableCallback = aCallback;
+    }
+
+    /**
+     * This method sets the callback to receive the IP6 multicast address table from the NCP.
+     *
+     * @param[in] aCallback  The callback to handle the IP6 address table.
+     *
+     */
+    void Ip6SetAddressMulticastCallback(const Ip6MulticastAddressTableCallback &aCallback)
+    {
+        mIp6MulticastAddressTableCallback = aCallback;
+    }
+
 private:
     using FailureHandler = std::function<void(otError)>;
 
@@ -128,6 +154,9 @@ private:
     spinel_tid_t GetNextTid(void);
     void         FreeTid(spinel_tid_t tid) { mCmdTidsInUse &= ~(1 << tid); }
 
+    otError ParseIp6Addresses(const uint8_t *aBuf, uint8_t aLen, std::vector<otIp6AddressInfo> &aAddresses);
+    otError ParseIp6MulticastAddresses(const uint8_t *aBuf, uint8_t aLen, std::vector<otIp6Address> &aAddresses);
+
     ot::Spinel::SpinelDriver *mSpinelDriver;
     uint16_t                  mCmdTidsInUse;              ///< Used transaction ids.
     spinel_tid_t              mCmdNextTid;                ///< Next available transaction id.
@@ -135,6 +164,9 @@ private:
 
     otDeviceRole         mDeviceRole;
     GetDeviceRoleHandler mGetDeviceRoleHandler;
+
+    Ip6UnicastAddressTableCallback   mIp6UnicastAddressTableCallback;
+    Ip6MulticastAddressTableCallback mIp6MulticastAddressTableCallback;
 
     TaskRunner mTaskRunner;
 };
