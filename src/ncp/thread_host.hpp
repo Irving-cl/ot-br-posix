@@ -44,6 +44,7 @@
 #include "lib/spinel/coprocessor_type.h"
 
 #include "common/logging.hpp"
+#include "mdns/mdns.hpp"
 
 namespace otbr {
 namespace Ncp {
@@ -160,6 +161,8 @@ public:
      *
      */
     virtual ~ThreadHost(void) = default;
+
+    virtual void HandleMdnsState(Mdns::Publisher::State aState) = 0;
 
 protected:
     static otLogLevel ConvertToOtLogLevel(otbrLogLevel aLevel);

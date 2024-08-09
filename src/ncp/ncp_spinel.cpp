@@ -36,6 +36,7 @@
 
 #include <openthread/dataset.h>
 #include <openthread/thread.h>
+#include <openthread/platform/dnssd.h>
 
 #include "common/code_utils.hpp"
 #include "common/logging.hpp"
@@ -61,6 +62,7 @@ NcpSpinel::NcpSpinel(void)
     , mIp6MulticastAddressTableCallback(nullptr)
     , mNetifStateChangedCallback(nullptr)
     , mIpDatagramRecvLength(0)
+    , mPublisher(nullptr)
 {
     std::fill_n(mWaitingKeyTable, SPINEL_PROP_LAST_STATUS, sizeof(mWaitingKeyTable));
 }
@@ -76,6 +78,7 @@ void NcpSpinel::Init(ot::Spinel::SpinelDriver *aSpinelDriver)
 void NcpSpinel::Deinit(void)
 {
     mSpinelDriver = nullptr;
+    mPublisher    = nullptr;
 }
 
 void NcpSpinel::GetDeviceRole(GetDeviceRoleHandler aHandler)
@@ -336,6 +339,43 @@ void NcpSpinel::InfraIfRecvIcmp6Nd(uint32_t       aInfraIfIndex,
     }
 }
 
+void NcpSpinel::SrpServerSetAutoEnableMode(bool aEnabled)
+{
+    otError error;
+
+    error = SetProperty(SPINEL_PROP_SRP_SERVER_AUTO_ENABLE_MODE, SPINEL_DATATYPE_BOOL_S, aEnabled);
+
+    if (error != OT_ERROR_NONE)
+    {
+        otbrLogWarning("Failed to call SrpServerSetAutoEnableMode, %s", otThreadErrorToString(error));
+    }
+}
+
+void NcpSpinel::SrpServerSetEnabled(bool aEnabled)
+{
+    otError error;
+
+    error = SetProperty(SPINEL_PROP_SRP_SERVER_ENABLED, SPINEL_DATATYPE_BOOL_S, aEnabled);
+
+    if (error != OT_ERROR_NONE)
+    {
+        otbrLogWarning("Failed to call SrpServerSetEnabled, %s", otThreadErrorToString(error));
+    }
+}
+
+void NcpSpinel::DnssdSetState(Mdns::Publisher::State aState)
+{
+    otError error;
+    bool    isReady = (aState == Mdns::Publisher::State::kReady);
+
+    error = SetProperty(SPINEL_PROP_DNSSD_STATE, SPINEL_DATATYPE_BOOL_S, isReady);
+
+    if (error != OT_ERROR_NONE)
+    {
+        otbrLogWarning("Failed to call DnssdSetState, %s", otThreadErrorToString(error));
+    }
+}
+
 void NcpSpinel::HandleReceivedFrame(const uint8_t *aFrame,
                                     uint16_t       aLength,
                                     uint8_t        aHeader,
@@ -385,8 +425,19 @@ void NcpSpinel::HandleNotification(const uint8_t *aFrame, uint16_t aLength)
     unpacked = spinel_datatype_unpack(aFrame, aLength, "CiiD", &header, &cmd, &key, &data, &len);
     VerifyOrExit(unpacked > 0, error = OTBR_ERROR_PARSE);
     VerifyOrExit(SPINEL_HEADER_GET_TID(header) == 0, error = OTBR_ERROR_PARSE);
-    VerifyOrExit(cmd == SPINEL_CMD_PROP_VALUE_IS);
-    HandleValueIs(key, data, static_cast<uint16_t>(len));
+
+    switch (cmd)
+    {
+    case SPINEL_CMD_PROP_VALUE_IS:
+        HandleValueIs(key, data, static_cast<uint16_t>(len));
+        break;
+    case SPINEL_CMD_PROP_VALUE_INSERTED:
+        HandleValueInserted(key, data, static_cast<uint16_t>(len));
+        break;
+    case SPINEL_CMD_PROP_VALUE_REMOVED:
+        HandleValueRemoved(key, data, static_cast<uint16_t>(len));
+        break;
+    }
 
 exit:
     if (error != OTBR_ERROR_NONE)
@@ -680,6 +731,134 @@ exit:
     return error;
 }
 
+static std::string KeyNameFor(const otPlatDnssdKey &aKey)
+{
+    std::string name(aKey.mName);
+
+    if (aKey.mServiceType != nullptr)
+    {
+        name += ".";
+        name += aKey.mServiceType;
+    }
+
+    return name;
+}
+
+void NcpSpinel::HandleValueInserted(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength)
+{
+    switch (aKey)
+    {
+    case SPINEL_PROP_DNSSD_HOST:
+    {
+        Mdns::Publisher::AddressList addressList;
+        otPlatDnssdHost              host;
+        otPlatDnssdRequestId         requestId;
+
+        SuccessOrExit(ParseDnssdHost(aBuffer, aLength, host, requestId));
+
+        for (uint16_t i = 0; i < host.mAddressesLength; i++)
+        {
+            addressList.push_back(Ip6Address(host.mAddresses[i].mFields.m8));
+        }
+
+        auto resultCallback = [this, requestId](otbrError aError) {
+            SendDnssdResult(requestId, OtbrErrorToOtError(aError));
+        };
+
+        mPublisher->PublishHost(host.mHostName, addressList, resultCallback);
+        break;
+    }
+    case SPINEL_PROP_DNSSD_SERVICE:
+    {
+        otPlatDnssdRequestId         requestId;
+        otPlatDnssdService           service;
+        Mdns::Publisher::SubTypeList subTypeList;
+        Mdns::Publisher::TxtData     txtData;
+
+        SuccessOrExit(ParseDnssdService(aBuffer, aLength, service, requestId, subTypeList));
+        txtData.assign(service.mTxtData, service.mTxtData + service.mTxtDataLength);
+
+        auto resultCallback = [this, requestId](otbrError aError) {
+            SendDnssdResult(requestId, OtbrErrorToOtError(aError));
+        };
+        mPublisher->PublishService(service.mHostName, service.mServiceInstance, service.mServiceType, subTypeList,
+                                   service.mPort, txtData, resultCallback);
+        break;
+    }
+    case SPINEL_PROP_DNSSD_KEY_RECORD:
+    {
+        otPlatDnssdRequestId     requestId;
+        otPlatDnssdKey           key;
+        Mdns::Publisher::KeyData keyData;
+
+        SuccessOrExit(ParseDnssdKey(aBuffer, aLength, key, requestId));
+        keyData.assign(key.mKeyData, key.mKeyData + key.mKeyDataLength);
+
+        auto resultCallback = [this, requestId](otbrError aError) {
+            SendDnssdResult(requestId, OtbrErrorToOtError(aError));
+        };
+        mPublisher->PublishKey(KeyNameFor(key), keyData, resultCallback);
+        break;
+    }
+    }
+
+exit:
+    return;
+}
+
+void NcpSpinel::HandleValueRemoved(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength)
+{
+    otbrLogWarning("HandleValueRemoved, aKey:%u", aKey);
+
+    switch (aKey)
+    {
+    case SPINEL_PROP_DNSSD_HOST:
+    {
+        otPlatDnssdHost      host;
+        otPlatDnssdRequestId requestId;
+
+        SuccessOrExit(ParseDnssdHost(aBuffer, aLength, host, requestId));
+
+        auto resultCallback = [this, requestId](otbrError aError) {
+            SendDnssdResult(requestId, OtbrErrorToOtError(aError));
+        };
+
+        mPublisher->UnpublishHost(host.mHostName, resultCallback);
+        break;
+    }
+    case SPINEL_PROP_DNSSD_SERVICE:
+    {
+        otPlatDnssdRequestId         requestId;
+        otPlatDnssdService           service;
+        Mdns::Publisher::SubTypeList subTypeList;
+
+        SuccessOrExit(ParseDnssdService(aBuffer, aLength, service, requestId, subTypeList));
+
+        auto resultCallback = [this, requestId](otbrError aError) {
+            SendDnssdResult(requestId, OtbrErrorToOtError(aError));
+        };
+        mPublisher->UnpublishService(service.mHostName,service.mServiceType, resultCallback);
+        break;
+    }
+    case SPINEL_PROP_DNSSD_KEY_RECORD:
+    {
+        otPlatDnssdRequestId     requestId;
+        otPlatDnssdKey           key;
+
+        SuccessOrExit(ParseDnssdKey(aBuffer, aLength, key, requestId));
+
+        auto resultCallback = [this, requestId](otbrError aError) {
+            SendDnssdResult(requestId, OtbrErrorToOtError(aError));
+        };
+        mPublisher->UnpublishKey(KeyNameFor(key), resultCallback);
+        break;
+    }
+    }
+
+exit:
+    return;
+}
+
 spinel_tid_t NcpSpinel::GetNextTid(void)
 {
     spinel_tid_t tid = mCmdNextTid;
@@ -946,6 +1125,90 @@ otError NcpSpinel::ParseIp6MulticastAddresses(const uint8_t *aBuf,
 
 exit:
     aAddrNum = index;
+    return error;
+}
+
+otError NcpSpinel::ParseDnssdHost(const uint8_t *aBuf, uint8_t aLen, otPlatDnssdHost &aHost, otPlatDnssdRequestId &aId)
+{
+    otError             error = OT_ERROR_NONE;
+    ot::Spinel::Decoder decoder;
+
+    VerifyOrExit(aBuf != nullptr, error = OT_ERROR_INVALID_ARGS);
+
+    decoder.Init(aBuf, aLen);
+
+    SuccessOrExit(error = decoder.ReadUint32(aId));
+    SuccessOrExit(error = decoder.ReadUtf8(aHost.mHostName));
+    SuccessOrExit(error = decoder.ReadUint16(aHost.mAddressesLength));
+    SuccessOrExit(error = decoder.ReadIp6Address(aHost.mAddresses));
+
+exit:
+    return error;
+}
+
+otError NcpSpinel::ParseDnssdService(const uint8_t                *aBuf,
+                                     uint8_t                       aLen,
+                                     otPlatDnssdService           &aService,
+                                     otPlatDnssdRequestId         &aId,
+                                     Mdns::Publisher::SubTypeList &aSubTypeList)
+{
+    otError             error = OT_ERROR_NONE;
+    ot::Spinel::Decoder decoder;
+    const char         *tmp;
+
+    VerifyOrExit(aBuf != nullptr, error = OT_ERROR_INVALID_ARGS);
+
+    decoder.Init(aBuf, aLen);
+
+    SuccessOrExit(error = decoder.ReadUint32(aId));
+    SuccessOrExit(error = decoder.ReadUtf8(aService.mHostName));
+    SuccessOrExit(error = decoder.ReadUtf8(aService.mServiceInstance));
+    SuccessOrExit(error = decoder.ReadUtf8(aService.mServiceType));
+    SuccessOrExit(error = decoder.ReadUint16(aService.mSubTypeLabelsLength));
+    for (uint16_t i = 0; i < aService.mSubTypeLabelsLength; i++)
+    {
+        SuccessOrExit(error = decoder.ReadUtf8(tmp));
+        aSubTypeList.push_back(tmp);
+    }
+    SuccessOrExit(error = decoder.ReadUint16(aService.mPort));
+    SuccessOrExit(error = decoder.ReadData(aService.mTxtData, aService.mTxtDataLength));
+
+exit:
+    return error;
+}
+
+otError NcpSpinel::ParseDnssdKey(const uint8_t *aBuf, uint8_t aLen, otPlatDnssdKey &aKey, otPlatDnssdRequestId &aId)
+{
+    otError             error = OT_ERROR_NONE;
+    ot::Spinel::Decoder decoder;
+
+    VerifyOrExit(aBuf != nullptr, error = OT_ERROR_INVALID_ARGS);
+
+    decoder.Init(aBuf, aLen);
+
+    SuccessOrExit(error = decoder.ReadUint32(aId));
+    SuccessOrExit(error = decoder.ReadUtf8(aKey.mName));
+    if (strlen(aKey.mName) == 0)
+    {
+        aKey.mName = nullptr;
+    }
+    SuccessOrExit(error = decoder.ReadUtf8(aKey.mServiceType));
+    if (strlen(aKey.mServiceType) == 0)
+    {
+        aKey.mServiceType = nullptr;
+    }
+    SuccessOrExit(error = decoder.ReadData(aKey.mKeyData, aKey.mKeyDataLength));
+
+exit:
+    return error;
+}
+
+otError NcpSpinel::SendDnssdResult(otPlatDnssdRequestId aRequestId, otError aError)
+{
+    otError error = OT_ERROR_NONE;
+
+    error = SetProperty(SPINEL_PROP_DNSSD_REQUEST_RESULT, SPINEL_DATATYPE_UINT32_S SPINEL_DATATYPE_UINT8_S, aRequestId, aError);
+
     return error;
 }
 

@@ -38,6 +38,7 @@
 #include "lib/spinel/spinel_driver.hpp"
 
 #include "common/mainloop.hpp"
+#include "mdns/mdns.hpp"
 #include "ncp/ncp_spinel.hpp"
 #include "ncp/thread_host.hpp"
 #include "posix/infra_if.hpp"
@@ -71,6 +72,7 @@ public:
     void Leave(const AsyncResultReceiver aReceiver) override;
     void ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
                            const AsyncResultReceiver       aReceiver) override;
+    void HandleMdnsState(Mdns::Publisher::State aState) override;
     CoprocessorType GetCoprocessorType(void) override { return OT_COPROCESSOR_NCP; }
     const char     *GetCoprocessorVersion(void) override;
     const char     *GetInterfaceName(void) const override { return mConfig.mInterfaceName; }
@@ -80,6 +82,8 @@ public:
     // MainloopProcessor methods
     void Update(MainloopContext &aMainloop) override;
     void Process(const MainloopContext &aMainloop) override;
+
+    void SetMdnsPublisher(Mdns::Publisher *aPublisher) { mNcpSpinel.SetMdnsPublisher(aPublisher); }
 
 private:
     ot::Spinel::SpinelDriver &mSpinelDriver;

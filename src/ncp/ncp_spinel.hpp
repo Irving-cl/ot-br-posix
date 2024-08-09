@@ -41,11 +41,13 @@
 #include <openthread/ip6.h>
 #include <openthread/link.h>
 #include <openthread/thread.h>
+#include <openthread/platform/dnssd.h>
 
 #include "lib/spinel/spinel.h"
 #include "lib/spinel/spinel_driver.hpp"
 
 #include "common/types.hpp"
+#include "mdns/mdns.hpp"
 
 namespace otbr {
 namespace Ncp {
@@ -258,6 +260,32 @@ public:
      */
     void InfraIfSetIcmp6NdSender(const InfraIfIcmp6NdSender &aSender) { mInfraIfIcmp6NdSender = aSender; }
 
+    /**
+     * This method enables/disables the SRP Server on NCP.
+     *
+     * @param[in] aEnable  A boolean to enable/disable the SRP server.
+     *
+     */
+    void SrpServerSetEnabled(bool aEnabled);
+
+    /**
+     * This method enables/disables the auto-enable mode on SRP Server on NCP.
+     *
+     * @param[in] aEnable  A boolean to enable/disable the SRP server.
+     *
+     */
+    void SrpServerSetAutoEnableMode(bool aEnabled);
+
+    /**
+     * This method sets the dnssd state on NCP.
+     *
+     * @param[in] aState  The dnssd state.
+     *
+     */
+    void DnssdSetState(Mdns::Publisher::State aState);
+
+    void SetMdnsPublisher(Mdns::Publisher *aPublisher) { mPublisher = aPublisher; }
+
 private:
     static constexpr uint8_t kMaxTids           = 16;
     static constexpr size_t  kMaxDatagramLength = 1280;
@@ -273,6 +301,8 @@ private:
     void      HandleNotification(const uint8_t *aFrame, uint16_t aLength);
     void      HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_t aLength);
     otbrError HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
+    void      HandleValueInserted(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
+    void      HandleValueRemoved(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
 
     spinel_tid_t GetNextTid(void);
     void         FreeTid(spinel_tid_t tid) { mCmdTidsInUse &= ~(1 << tid); }
@@ -291,6 +321,15 @@ private:
                                        uint8_t        aLen,
                                        otIp6Address  *aAddressList,
                                        uint8_t       &aAddrNum);
+    otError ParseDnssdHost(const uint8_t *aBuf, uint8_t aLen, otPlatDnssdHost &aHost, otPlatDnssdRequestId &aId);
+    otError ParseDnssdService(const uint8_t                *aBuf,
+                              uint8_t                       aLen,
+                              otPlatDnssdService           &aService,
+                              otPlatDnssdRequestId         &aId,
+                              Mdns::Publisher::SubTypeList &aSubTypeList);
+    otError ParseDnssdKey(const uint8_t *aBuf, uint8_t aLen, otPlatDnssdKey &aKey, otPlatDnssdRequestId &aId);
+
+    otError SendDnssdResult(otPlatDnssdRequestId aRequestId, otError aError);
 
     ot::Spinel::SpinelDriver *mSpinelDriver;
     uint16_t                  mCmdTidsInUse;              ///< Used transaction ids.
@@ -319,6 +358,8 @@ private:
     uint16_t mIpDatagramRecvLength;
     uint8_t  mIcmp6Datagram[kMaxDatagramLength];
     uint16_t mIcmp6DatagramLength;
+
+    Mdns::Publisher *mPublisher;
 };
 
 } // namespace Ncp

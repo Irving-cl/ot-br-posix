@@ -40,6 +40,7 @@
 #include "agent/application.hpp"
 #include "common/code_utils.hpp"
 #include "common/mainloop_manager.hpp"
+#include "ncp/ncp_host.hpp"
 #include "utils/infra_link_selector.hpp"
 
 namespace otbr {
@@ -103,6 +104,8 @@ void Application::Init(void)
 
 void Application::Deinit(void)
 {
+    mMdnsStateChangeHandlers.clear();
+
     switch (mHost->GetCoprocessorType())
     {
     case OT_COPROCESSOR_RCP:
@@ -196,20 +199,11 @@ otbrError Application::Run(void)
 
 void Application::HandleMdnsState(Mdns::Publisher::State aState)
 {
-    OTBR_UNUSED_VARIABLE(aState);
-
-#if OTBR_ENABLE_BORDER_AGENT
-    mBorderAgent->HandleMdnsState(aState);
-#endif
-#if OTBR_ENABLE_SRP_ADVERTISING_PROXY
-    mAdvertisingProxy->HandleMdnsState(aState);
-#endif
-#if OTBR_ENABLE_DNSSD_DISCOVERY_PROXY
-    mDiscoveryProxy->HandleMdnsState(aState);
-#endif
-#if OTBR_ENABLE_TREL
-    mTrelDnssd->HandleMdnsState(aState);
-#endif
+    otbrLogWarning("!!! HandleMdnsState");
+    for (auto &handler : mMdnsStateChangeHandlers)
+    {
+        handler(aState);
+    }
 }
 
 void Application::HandleSignal(int aSignal)
@@ -249,6 +243,23 @@ void Application::CreateRcpMode(const std::string &aRestListenAddress, int aRest
 
 void Application::InitRcpMode(void)
 {
+#if OTBR_ENABLE_BORDER_AGENT
+    mMdnsStateChangeHandlers.push_back(
+        std::bind(&BorderAgent::HandleMdnsState, mBorderAgent.get(), std::placeholders::_1));
+#endif
+#if OTBR_ENABLE_SRP_ADVERTISING_PROXY
+    mMdnsStateChangeHandlers.push_back(
+        std::bind(&AdvertisingProxy::HandleMdnsState, mAdvertisingProxy.get(), std::placeholders::_1));
+#endif
+#if OTBR_ENABLE_DNSSD_DISCOVERY_PROXY
+    mMdnsStateChangeHandlers.push_back(
+        std::bind(&Dnssd::DiscoveryProxy::HandleMdnsState, mDiscoveryProxy.get(), std::placeholders::_1));
+#endif
+#if OTBR_ENABLE_TREL
+    mMdnsStateChangeHandlers.push_back(
+        std::bind(&TrelDnssd::TrelDnssd::HandleMdnsState, mTrelDnssd.get(), std::placeholders::_1));
+#endif
+
 #if OTBR_ENABLE_MDNS
     mPublisher->Start();
 #endif
@@ -302,6 +313,12 @@ void Application::DeinitRcpMode(void)
 
 void Application::InitNcpMode(void)
 {
+#if OTBR_ENABLE_MDNS
+    static_cast<Ncp::NcpHost &>(*mHost).SetMdnsPublisher(mPublisher.get());
+    mMdnsStateChangeHandlers.push_back(
+        std::bind(&Ncp::ThreadHost::HandleMdnsState, mHost.get(), std::placeholders::_1));
+    mPublisher->Start();
+#endif
 #if OTBR_ENABLE_DBUS_SERVER
     mDBusAgent->Init();
 #endif
@@ -309,7 +326,9 @@ void Application::InitNcpMode(void)
 
 void Application::DeinitNcpMode(void)
 {
-    /* empty */
+#if OTBR_ENABLE_MDNS
+    mPublisher->Stop();
+#endif
 }
 
 } // namespace otbr

@@ -301,6 +301,9 @@ private:
 #endif
 
     static std::atomic_bool sShouldTerminate;
+
+    using MdnsStateChangeHandler = std::function<void(Mdns::Publisher::State aState)>;
+    std::vector<MdnsStateChangeHandler> mMdnsStateChangeHandlers;
 };
 
 /**

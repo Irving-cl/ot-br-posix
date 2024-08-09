@@ -401,6 +401,11 @@ void RcpHost::ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatase
     aReceiver(OT_ERROR_NOT_IMPLEMENTED, "Not implemented!");
 }
 
+void RcpHost::HandleMdnsState(Mdns::Publisher::State aState)
+{
+    OT_UNUSED_VARIABLE(aState);
+}
+
 /*
  * Provide, if required an "otPlatLog()" function
  */

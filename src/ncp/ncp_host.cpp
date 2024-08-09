@@ -85,6 +85,16 @@ void NcpHost::Init(void)
         mInfraIf.SetInfraNetif(mConfig.mBackboneInterfaceName, icmp6Sock);
     }
     mInfraIf.SetUp();
+
+#if OTBR_ENABLE_SRP_ADVERTISING_PROXY
+#if OTBR_ENABLE_SRP_SERVER_AUTO_ENABLE_MODE
+    // Let SRP server use auto-enable mode. The auto-enable mode delegates the control of SRP server to the Border
+    // Routing Manager. SRP server automatically starts when bi-directional connectivity is ready.
+    mNcpSpinel.SrpServerSetAutoEnableMode(/* aEnabled */ true);
+#else
+    mNcpSpinel.SrpServerSetEnabled(/* aEnabled */ true);
+#endif
+#endif
 }
 
 void NcpHost::Deinit(void)
@@ -184,6 +194,11 @@ void NcpHost::Update(MainloopContext &aMainloop)
 
     mInfraIf.UpdateFdSet(aMainloop);
     mNetif.UpdateFdSet(&aMainloop);
+}
+
+void NcpHost::HandleMdnsState(Mdns::Publisher::State aState)
+{
+    mNcpSpinel.DnssdSetState(aState);
 }
 
 } // namespace Ncp

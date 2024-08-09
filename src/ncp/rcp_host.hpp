@@ -200,6 +200,7 @@ public:
     void Leave(const AsyncResultReceiver aRecevier) override;
     void ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
                            const AsyncResultReceiver       aReceiver) override;
+    void HandleMdnsState(Mdns::Publisher::State aState) override;
 
     CoprocessorType GetCoprocessorType(void) override
     {
