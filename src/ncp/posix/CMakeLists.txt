@@ -27,6 +27,7 @@
 #
 
 add_library(otbr-posix
+    infra_if.cpp
     netif.cpp
     netif_linux.cpp
     netif_unix.cpp

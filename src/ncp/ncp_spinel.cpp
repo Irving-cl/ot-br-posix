@@ -273,7 +273,7 @@ void NcpSpinel::HandleNotification(const uint8_t *aFrame, uint16_t aLength)
     HandleValueIs(key, data, static_cast<uint16_t>(len));
 
 exit:
-    otbrLogResult(error, "HandleNotification: %s", __FUNCTION__);
+    otbrLogResult(error, "%s", __FUNCTION__);
 }
 
 void NcpSpinel::HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_t aLength)
@@ -405,6 +405,18 @@ void NcpSpinel::HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, ui
         break;
     }
 
+    case SPINEL_PROP_INFRA_IF_SEND_ICMP6_ND:
+    {
+        uint32_t            infraIfIndex;
+        const otIp6Address *destAddress;
+        const uint8_t      *data;
+        uint16_t            dataLen;
+
+        SuccessOrExit(ParseInfraIfIcmp6Nd(aBuffer, aLength, infraIfIndex, destAddress, data, dataLen));
+        SafeInvoke(mInfraIfIcmp6NdCallback, infraIfIndex, *destAddress, data, dataLen);
+        break;
+    }
+
     default:
         otbrLogWarning("Received uncognized key: %u", aKey);
         break;
@@ -423,7 +435,8 @@ otbrError NcpSpinel::HandleResponseForPropSet(spinel_tid_t      aTid,
     OTBR_UNUSED_VARIABLE(aData);
     OTBR_UNUSED_VARIABLE(aLength);
 
-    otbrError error = OTBR_ERROR_NONE;
+    otbrError       error  = OTBR_ERROR_NONE;
+    spinel_status_t status = SPINEL_STATUS_OK;
 
     switch (mWaitingKeyTable[aTid])
     {
@@ -450,8 +463,6 @@ otbrError NcpSpinel::HandleResponseForPropSet(spinel_tid_t      aTid,
     case SPINEL_PROP_THREAD_MGMT_SET_PENDING_DATASET_TLVS:
         if (aKey == SPINEL_PROP_LAST_STATUS)
         { // Failed case
-            spinel_status_t status = SPINEL_STATUS_OK;
-
             SuccessOrExit(error = SpinelDataUnpack(aData, aLength, SPINEL_DATATYPE_UINT_PACKED_S, &status));
             CallAndClear(mDatasetMgmtSetPendingTask, ot::Spinel::SpinelStatusToOtError(status));
         }
@@ -462,6 +473,25 @@ otbrError NcpSpinel::HandleResponseForPropSet(spinel_tid_t      aTid,
         break;
 
     case SPINEL_PROP_STREAM_NET:
+        VerifyOrExit(aKey == SPINEL_PROP_LAST_STATUS, error = OTBR_ERROR_INVALID_STATE);
+        break;
+
+    case SPINEL_PROP_INFRA_IF_SETUP:
+        VerifyOrExit(aKey == SPINEL_PROP_LAST_STATUS, error = OTBR_ERROR_INVALID_STATE);
+        SuccessOrExit(error = SpinelDataUnpack(aData, aLength, SPINEL_DATATYPE_UINT_PACKED_S, &status));
+        otbrLogInfo("Infra If setup result: %s", spinel_status_to_cstr(status));
+        break;
+
+    case SPINEL_PROP_INFRA_IF_STATE:
+        VerifyOrExit(aKey == SPINEL_PROP_LAST_STATUS, error = OTBR_ERROR_INVALID_STATE);
+        SuccessOrExit(error = SpinelDataUnpack(aData, aLength, SPINEL_DATATYPE_UINT_PACKED_S, &status));
+        otbrLogInfo("Infra If state update result: %s", spinel_status_to_cstr(status));
+        break;
+
+    case SPINEL_PROP_INFRA_IF_RECV_ICMP6_ND:
+        VerifyOrExit(aKey == SPINEL_PROP_LAST_STATUS, error = OTBR_ERROR_INVALID_STATE);
+        SuccessOrExit(error = SpinelDataUnpack(aData, aLength, SPINEL_DATATYPE_UINT_PACKED_S, &status));
+        otbrLogInfo("Infra If handle ICMP6 ND result: %s", spinel_status_to_cstr(status));
         break;
 
     default:
@@ -613,6 +643,95 @@ otError NcpSpinel::ParseIp6StreamNet(const uint8_t *aBuf, uint8_t aLen, const ui
     error = decoder.ReadDataWithLen(aData, aDataLen);
 
 exit:
+    return error;
+}
+
+otError NcpSpinel::ParseInfraIfIcmp6Nd(const uint8_t       *aBuf,
+                                       uint8_t              aLen,
+                                       uint32_t            &aInfraIfIndex,
+                                       const otIp6Address *&aAddr,
+                                       const uint8_t      *&aData,
+                                       uint16_t            &aDataLen)
+{
+    otError             error = OT_ERROR_NONE;
+    ot::Spinel::Decoder decoder;
+
+    VerifyOrExit(aBuf != nullptr, error = OT_ERROR_INVALID_ARGS);
+
+    decoder.Init(aBuf, aLen);
+    SuccessOrExit(error = decoder.ReadUint32(aInfraIfIndex));
+    SuccessOrExit(error = decoder.ReadIp6Address(aAddr));
+    SuccessOrExit(error = decoder.ReadDataWithLen(aData, aDataLen));
+
+exit:
+    return error;
+}
+
+otbrError NcpSpinel::SetInfraIf(uint32_t aInfraIfIndex, bool aIsRunning, const std::vector<otIp6Address> &aIp6Addresses)
+{
+    otbrError    error        = OTBR_ERROR_NONE;
+    EncodingFunc encodingFunc = [this, aInfraIfIndex, aIsRunning, &aIp6Addresses] {
+        otError error = OT_ERROR_NONE;
+        SuccessOrExit(error = mEncoder.WriteUint32(aInfraIfIndex));
+        SuccessOrExit(error = mEncoder.WriteBool(aIsRunning));
+        for (const otIp6Address &addr : aIp6Addresses)
+        {
+            SuccessOrExit(error = mEncoder.OpenStruct());
+            SuccessOrExit(error = mEncoder.WriteIp6Address(addr));
+            SuccessOrExit(error = mEncoder.CloseStruct());
+        }
+    exit:
+        return error;
+    };
+
+    SuccessOrExit(SetProperty(SPINEL_PROP_INFRA_IF_SETUP, encodingFunc), error = OTBR_ERROR_OPENTHREAD);
+exit:
+    return error;
+}
+
+otbrError NcpSpinel::UpdateInfraIfState(bool aIsRunning, const std::vector<otIp6Address> &aIp6Addresses)
+{
+    otbrError    error        = OTBR_ERROR_NONE;
+    EncodingFunc encodingFunc = [this, aIsRunning, &aIp6Addresses] {
+        otError error = OT_ERROR_NONE;
+        SuccessOrExit(error = mEncoder.WriteBool(aIsRunning));
+        for (const otIp6Address &addr : aIp6Addresses)
+        {
+            SuccessOrExit(error = mEncoder.OpenStruct());
+            SuccessOrExit(error = mEncoder.WriteIp6Address(addr));
+            SuccessOrExit(error = mEncoder.CloseStruct());
+        }
+    exit:
+        return error;
+    };
+
+    SuccessOrExit(SetProperty(SPINEL_PROP_INFRA_IF_STATE, encodingFunc), error = OTBR_ERROR_OPENTHREAD);
+exit:
+    return error;
+}
+
+otbrError NcpSpinel::HandleIcmp6Nd(uint32_t            aInfraIfIndex,
+                                   const otIp6Address &aIp6Address,
+                                   const uint8_t      *aData,
+                                   uint16_t            aDataLen)
+{
+    otbrError    error        = OTBR_ERROR_NONE;
+    EncodingFunc encodingFunc = [this, aInfraIfIndex, &aIp6Address, aData, aDataLen] {
+        otError error = OT_ERROR_NONE;
+        SuccessOrExit(error = mEncoder.WriteUint32(aInfraIfIndex));
+        SuccessOrExit(error = mEncoder.WriteIp6Address(aIp6Address));
+        SuccessOrExit(error = mEncoder.WriteData(aData, aDataLen));
+    exit:
+        return error;
+    };
+
+    SuccessOrExit(SetProperty(SPINEL_PROP_INFRA_IF_RECV_ICMP6_ND, encodingFunc), error = OTBR_ERROR_OPENTHREAD);
+
+exit:
+    if (error != OTBR_ERROR_NONE)
+    {
+        otbrLogWarning("Failed to passthrough ICMP6 ND to NCP, %s", otbrErrorString(error));
+    }
     return error;
 }
 

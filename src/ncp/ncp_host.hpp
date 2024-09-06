@@ -78,7 +78,7 @@ public:
      * @param[in]   aDryRun         TRUE to indicate dry-run mode. FALSE otherwise.
      *
      */
-    NcpHost(const char *aInterfaceName, bool aDryRun);
+    NcpHost(const char *aInterfaceName, const char *aBackboneInterfaceName, bool aDryRun);
 
     /**
      * Destructor.
@@ -107,6 +107,7 @@ private:
     NcpSpinel                 mNcpSpinel;
     TaskRunner                mTaskRunner;
     Netif                     mNetif;
+    InfraIf                   mInfraIf;
 };
 
 } // namespace Ncp
