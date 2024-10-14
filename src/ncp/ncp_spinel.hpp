@@ -263,6 +263,10 @@ private:
     void      HandleNotification(const uint8_t *aFrame, uint16_t aLength);
     void      HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_t aLength);
     void      HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
+    otbrError HandleResponseForPropGet(spinel_tid_t      aTid,
+                                       spinel_prop_key_t aKey,
+                                       const uint8_t    *aData,
+                                       uint16_t          aLength);
     otbrError HandleResponseForPropSet(spinel_tid_t      aTid,
                                        spinel_prop_key_t aKey,
                                        const uint8_t    *aData,
@@ -280,24 +284,31 @@ private:
 
     otbrError Ip6MulAddrUpdateSubscription(const otIp6Address &aAddress, bool aIsAdded) override;
 
+    void InitializeDeviceRole(void);
+
     spinel_tid_t GetNextTid(void);
     void         FreeTidTableItem(spinel_tid_t aTid);
 
     using EncodingFunc = std::function<otError(void)>;
     otError SendCommand(spinel_command_t aCmd, spinel_prop_key_t aKey, const EncodingFunc &aEncodingFunc);
+    otError GetProperty(spinel_prop_key_t aKey);
     otError SetProperty(spinel_prop_key_t aKey, const EncodingFunc &aEncodingFunc);
     otError InsertProperty(spinel_prop_key_t aKey, const EncodingFunc &aEncodingFunc);
     otError RemoveProperty(spinel_prop_key_t aKey, const EncodingFunc &aEncodingFunc);
+    otError WaitForGetPropertyResponse(void);
 
     otError SendEncodedFrame(void);
 
     otError ParseIp6AddressTable(const uint8_t *aBuf, uint16_t aLength, std::vector<Ip6AddressInfo> &aAddressTable);
     otError ParseIp6MulticastAddresses(const uint8_t *aBuf, uint8_t aLen, std::vector<Ip6Address> &aAddressList);
     otError ParseIp6StreamNet(const uint8_t *aBuf, uint8_t aLen, const uint8_t *&aData, uint16_t &aDataLen);
+    otError ParseDeviceRole(const uint8_t *aBuf, uint8_t aLen, otDeviceRole &aRole);
 
     ot::Spinel::SpinelDriver *mSpinelDriver;
     uint16_t                  mCmdTidsInUse; ///< Used transaction ids.
     spinel_tid_t              mCmdNextTid;   ///< Next available transaction id.
+    bool                      mIsWaitingForGetProp;
+    static constexpr uint32_t kMaxWaitTimeUs = 2000000; ///< Max time to wait for response in microseconds.
 
     spinel_prop_key_t mWaitingKeyTable[kMaxTids]; ///< The property keys of ongoing transactions.
     spinel_command_t  mCmdTable[kMaxTids];        ///< The mapping of spinel command and tids when the response

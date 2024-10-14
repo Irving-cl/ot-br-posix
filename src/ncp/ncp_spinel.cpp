@@ -36,6 +36,7 @@
 
 #include <openthread/dataset.h>
 #include <openthread/thread.h>
+#include <openthread/platform/time.h>
 
 #include "common/code_utils.hpp"
 #include "common/logging.hpp"
@@ -53,6 +54,7 @@ NcpSpinel::NcpSpinel(void)
     : mSpinelDriver(nullptr)
     , mCmdTidsInUse(0)
     , mCmdNextTid(1)
+    , mIsWaitingForGetProp(false)
     , mNcpBuffer(mTxBuffer, kTxBufferSize)
     , mEncoder(mNcpBuffer)
     , mIid(SPINEL_HEADER_INVALID_IID)
@@ -68,6 +70,8 @@ void NcpSpinel::Init(ot::Spinel::SpinelDriver &aSpinelDriver, PropsObserver &aOb
     mPropsObserver = &aObserver;
     mIid           = mSpinelDriver->GetIid();
     mSpinelDriver->SetFrameHandler(&HandleReceivedFrame, &HandleSavedFrame, this);
+
+    InitializeDeviceRole();
 }
 
 void NcpSpinel::Deinit(void)
@@ -288,8 +292,18 @@ void NcpSpinel::HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_
 
     SuccessOrExit(error = SpinelDataUnpack(aFrame, aLength, kSpinelDataUnpackFormat, &header, &cmd, &key, &data, &len));
 
+    if (mIsWaitingForGetProp)
+    {
+        VerifyOrExit(mCmdTable[aTid] == SPINEL_CMD_PROP_VALUE_GET, error = OTBR_ERROR_INVALID_STATE);
+    }
+
     switch (mCmdTable[aTid])
     {
+    case SPINEL_CMD_PROP_VALUE_GET:
+    {
+        error = HandleResponseForPropGet(aTid, key, data, len);
+        break;
+    }
     case SPINEL_CMD_PROP_VALUE_SET:
     {
         error = HandleResponseForPropSet(aTid, key, data, len);
@@ -421,6 +435,36 @@ void NcpSpinel::HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, ui
 exit:
     otbrLogResult(error, "NcpSpinel: %s", __FUNCTION__);
     return;
+}
+
+otbrError NcpSpinel::HandleResponseForPropGet(spinel_tid_t      aTid,
+                                              spinel_prop_key_t aKey,
+                                              const uint8_t    *aData,
+                                              uint16_t          aLength)
+{
+    otbrError error = OTBR_ERROR_NONE;
+
+    VerifyOrExit(aKey == mWaitingKeyTable[aTid], error = OTBR_ERROR_INVALID_STATE);
+
+    switch (mWaitingKeyTable[aTid])
+    {
+    case SPINEL_PROP_NET_ROLE:
+    {
+        otDeviceRole role;
+        VerifyOrExit(ParseDeviceRole(aData, aLength, role) == OT_ERROR_NONE, error = OTBR_ERROR_PARSE);
+        mPropsObserver->SetDeviceRole(role);
+        break;
+    }
+    default:
+        break;
+    }
+
+exit:
+    if (mIsWaitingForGetProp)
+    {
+        mIsWaitingForGetProp = false;
+    }
+    return error;
 }
 
 otbrError NcpSpinel::HandleResponseForPropSet(spinel_tid_t      aTid,
@@ -567,6 +611,12 @@ exit:
     return error;
 }
 
+void NcpSpinel::InitializeDeviceRole(void)
+{
+    SuccessOrDie(GetProperty(SPINEL_PROP_NET_ROLE), "Failed to get device role from NCP!");
+    SuccessOrDie(WaitForGetPropertyResponse(), "Failed to get response from NCP for device role");
+}
+
 spinel_tid_t NcpSpinel::GetNextTid(void)
 {
     spinel_tid_t tid = mCmdNextTid;
@@ -607,7 +657,10 @@ otError NcpSpinel::SendCommand(spinel_command_t aCmd, spinel_prop_key_t aKey, co
 
     VerifyOrExit(tid != 0, error = OT_ERROR_BUSY);
     SuccessOrExit(error = mEncoder.BeginFrame(header, aCmd, aKey));
-    SuccessOrExit(error = aEncodingFunc());
+    if (aEncodingFunc)
+    {
+        SuccessOrExit(error = aEncodingFunc());
+    }
     SuccessOrExit(error = mEncoder.EndFrame());
     SuccessOrExit(error = SendEncodedFrame());
 
@@ -619,6 +672,12 @@ exit:
         FreeTidTableItem(tid);
     }
     return error;
+}
+
+otError NcpSpinel::GetProperty(spinel_prop_key_t aKey)
+{
+    mIsWaitingForGetProp = true;
+    return SendCommand(SPINEL_CMD_PROP_VALUE_GET, aKey, EncodingFunc(nullptr));
 }
 
 otError NcpSpinel::SetProperty(spinel_prop_key_t aKey, const EncodingFunc &aEncodingFunc)
@@ -634,6 +693,25 @@ otError NcpSpinel::InsertProperty(spinel_prop_key_t aKey, const EncodingFunc &aE
 otError NcpSpinel::RemoveProperty(spinel_prop_key_t aKey, const EncodingFunc &aEncodingFunc)
 {
     return SendCommand(SPINEL_CMD_PROP_VALUE_REMOVE, aKey, aEncodingFunc);
+}
+
+otError NcpSpinel::WaitForGetPropertyResponse(void)
+{
+    otError  error = OT_ERROR_NONE;
+    uint64_t end   = otPlatTimeGet() + kMaxWaitTimeUs;
+
+    do
+    {
+        uint64_t now = otPlatTimeGet();
+
+        if ((end <= now) || (mSpinelDriver->GetSpinelInterface()->WaitForFrame(end - now) != OT_ERROR_NONE))
+        {
+            ExitNow(error = OT_ERROR_RESPONSE_TIMEOUT);
+        }
+    } while (mIsWaitingForGetProp);
+
+exit:
+    return error;
 }
 
 otError NcpSpinel::SendEncodedFrame(void)
@@ -720,6 +798,22 @@ otError NcpSpinel::ParseIp6StreamNet(const uint8_t *aBuf, uint8_t aLen, const ui
 
     decoder.Init(aBuf, aLen);
     error = decoder.ReadDataWithLen(aData, aDataLen);
+
+exit:
+    return error;
+}
+
+otError NcpSpinel::ParseDeviceRole(const uint8_t *aBuf, uint8_t aLen, otDeviceRole &aRole)
+{
+    otError             error = OT_ERROR_NONE;
+    ot::Spinel::Decoder decoder;
+    uint8_t             spinelRole;
+
+    VerifyOrExit(aBuf != nullptr, error = OT_ERROR_INVALID_ARGS);
+
+    decoder.Init(aBuf, aLen);
+    SuccessOrExit(error = decoder.ReadUint8(spinelRole));
+    aRole = SpinelRoleToDeviceRole(static_cast<spinel_net_role_t>(spinelRole));
 
 exit:
     return error;
