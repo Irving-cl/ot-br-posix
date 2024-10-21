@@ -209,6 +209,7 @@ public:
     void ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
                            const AsyncResultReceiver       aReceiver) override;
     void SetThreadEnabled(bool aEnabled, const AsyncResultReceiver aReceiver) override;
+    void GetChannelMasks(const ChannelMasksReceiver &aReceiver, const AsyncResultReceiver &aErrReceiver) override;
 
     CoprocessorType GetCoprocessorType(void) override
     {
