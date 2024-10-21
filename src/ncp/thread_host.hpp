@@ -88,6 +88,12 @@ public:
     using AsyncResultReceiver = std::function<void(otError, const std::string &)>;
     using DeviceRoleHandler   = std::function<void(otError, otDeviceRole)>;
 
+    struct ChannelMaxPower
+    {
+        int mChannel;
+        int mMaxPower;
+    };
+
     /**
      * Create a Thread Controller Instance.
      *
@@ -156,6 +162,19 @@ public:
      * @param[in] aReceiver  A receiver to get the async result of this operation.
      */
     virtual void SetThreadEnabled(bool aEnabled, const AsyncResultReceiver aReceiver) = 0;
+
+    /**
+     * Sets the max power of each channel.
+     *
+     * 1. If the host hasn't been initialized, @p aReceiver will be invoked with error OT_ERROR_INVALID_STATE.
+     * 2. If any value in @p aChannelMaxPowers is invalid, @p aReceiver will be invoked with error
+     * OT_ERROR_INVALID_ARGS.
+     *
+     * @param[in] aChannelMaxPowers  A vector of ChannelMaxPower.
+     * @param[in] aReceiver          A receiver to get the async result of this operation.
+     */
+    virtual void SetChannelMaxPowers(const std::vector<ChannelMaxPower> &aChannelMaxPowers,
+                                     const AsyncResultReceiver          &aReceiver) = 0;
 
     /**
      * Returns the co-processor type.

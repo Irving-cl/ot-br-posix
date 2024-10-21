@@ -209,6 +209,8 @@ public:
     void ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
                            const AsyncResultReceiver       aReceiver) override;
     void SetThreadEnabled(bool aEnabled, const AsyncResultReceiver aReceiver) override;
+    void SetChannelMaxPowers(const std::vector<ChannelMaxPower> &aChannelMaxPowers,
+                             const AsyncResultReceiver          &aReceiver) override;
 
     CoprocessorType GetCoprocessorType(void) override
     {
