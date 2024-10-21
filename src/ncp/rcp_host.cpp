@@ -308,6 +308,7 @@ void RcpHost::Deinit(void)
     mResetHandlers.clear();
 
     mSetThreadEnabledReceiver = nullptr;
+    mLeaveReceivers.clear();
 }
 
 void RcpHost::HandleStateChanged(otChangedFlags aFlags)
@@ -417,8 +418,26 @@ void RcpHost::Join(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, const A
 
 void RcpHost::Leave(const AsyncResultReceiver &aReceiver)
 {
-    // TODO: Implement Leave under RCP mode.
-    mTaskRunner.Post([aReceiver](void) { aReceiver(OT_ERROR_NOT_IMPLEMENTED, "Not implemented!"); });
+    otError     error = OT_ERROR_NONE;
+    std::string errorMsg;
+
+    VerifyOrExit(mInstance != nullptr, error = OT_ERROR_INVALID_STATE, errorMsg = "OT is not initialized");
+
+    if (GetDeviceRole() == OT_DEVICE_ROLE_DISABLED)
+    {
+        OT_UNUSED_VARIABLE(otInstanceErasePersistentInfo(mInstance));
+        ExitNow();
+    }
+
+    mLeaveReceivers.emplace_back(aReceiver);
+    // Ignores the OT_ERROR_BUSY error if a detach has already been requested
+    OT_UNUSED_VARIABLE(otThreadDetachGracefully(mInstance, FinishLeaveAfterDetach, this));
+
+exit:
+    if (error != OT_ERROR_NONE)
+    {
+        mTaskRunner.Post([aReceiver, error, errorMsg](void) { aReceiver(error, errorMsg); });
+    }
 }
 
 void RcpHost::ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
@@ -478,6 +497,22 @@ void RcpHost::DisableThreadAfterDetach(void)
 
 exit:
     SafeInvokeAndClear(mSetThreadEnabledReceiver, error, errorMsg);
+}
+
+void RcpHost::FinishLeaveAfterDetach(void *aContext)
+{
+    static_cast<RcpHost *>(aContext)->FinishLeaveAfterDetach();
+}
+
+void RcpHost::FinishLeaveAfterDetach(void)
+{
+    OT_UNUSED_VARIABLE(otInstanceErasePersistentInfo(mInstance));
+
+    for (auto &receiver : mLeaveReceivers)
+    {
+        receiver(OT_ERROR_NONE, "");
+    }
+    mLeaveReceivers.clear();
 }
 
 /*

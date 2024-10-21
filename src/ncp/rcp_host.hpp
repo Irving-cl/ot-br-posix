@@ -251,6 +251,8 @@ private:
 
     static void DisableThreadAfterDetach(void *aContext);
     void        DisableThreadAfterDetach(void);
+    static void FinishLeaveAfterDetach(void *aContext);
+    void        FinishLeaveAfterDetach(void);
 
     bool IsAutoAttachEnabled(void);
     void DisableAutoAttach(void);
@@ -266,7 +268,8 @@ private:
     std::vector<ThreadStateChangedCallback>    mThreadStateChangedCallbacks;
     bool                                       mEnableAutoAttach = false;
 
-    AsyncResultReceiver mSetThreadEnabledReceiver;
+    AsyncResultReceiver              mSetThreadEnabledReceiver;
+    std::vector<AsyncResultReceiver> mLeaveReceivers;
 
 #if OTBR_ENABLE_FEATURE_FLAGS
     // The applied FeatureFlagList in ApplyFeatureFlagList call, used for debugging purpose.
