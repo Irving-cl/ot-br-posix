@@ -480,6 +480,28 @@ exit:
     SafeInvokeAndClear(mSetThreadEnabledReceiver, error, errorMsg);
 }
 
+void RcpHost::SetConfiguration(Configuration aConfiguration, const AsyncResultReceiver &aReceiver)
+{
+    otError     error = OT_ERROR_NONE;
+    std::string errorMsg;
+
+    VerifyOrExit(mInstance != nullptr, error = OT_ERROR_INVALID_STATE, errorMsg = "OT is not initialized");
+    VerifyOrExit(aConfiguration != mConfiguration);
+
+    // TODO: Support enabling/disabling DHCPv6-PD.
+    VerifyOrExit(!aConfiguration.mDhcpv6PdEnabled, error = OT_ERROR_NOT_IMPLEMENTED,
+                 errorMsg = "DHCPv6-PD is not supported");
+#if OTBR_ENABLE_NAT64
+    otNat64SetEnabled(mInstance, aConfiguration.mNat64Enabled);
+#else
+    VerifyOrExit(!aConfiguration.mNat64Enabled, error = OT_ERROR_NOT_CAPABLE, errorMsg = "NAT-64 is not supported");
+#endif
+    mConfiguration = aConfiguration;
+
+exit:
+    mTaskRunner.Post([aReceiver, error, errorMsg](void) { aReceiver(error, errorMsg); });
+}
+
 /*
  * Provide, if required an "otPlatLog()" function
  */

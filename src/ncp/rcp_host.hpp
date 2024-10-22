@@ -209,6 +209,7 @@ public:
     void ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
                            const AsyncResultReceiver       aReceiver) override;
     void SetThreadEnabled(bool aEnabled, const AsyncResultReceiver aReceiver) override;
+    void SetConfiguration(Configuration aConfiguration, const AsyncResultReceiver &aReceiver) override;
 
     CoprocessorType GetCoprocessorType(void) override
     {
@@ -267,6 +268,8 @@ private:
     bool                                       mEnableAutoAttach = false;
 
     AsyncResultReceiver mSetThreadEnabledReceiver;
+
+    Configuration mConfiguration;
 
 #if OTBR_ENABLE_FEATURE_FLAGS
     // The applied FeatureFlagList in ApplyFeatureFlagList call, used for debugging purpose.

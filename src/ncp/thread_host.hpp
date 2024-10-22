@@ -88,6 +88,18 @@ public:
     using AsyncResultReceiver = std::function<void(otError, const std::string &)>;
     using DeviceRoleHandler   = std::function<void(otError, otDeviceRole)>;
 
+    struct Configuration
+    {
+        bool mNat64Enabled : 1;
+        bool mDhcpv6PdEnabled : 1;
+
+        bool operator==(const Configuration &aOther) const
+        {
+            return mNat64Enabled == aOther.mNat64Enabled && mDhcpv6PdEnabled == aOther.mDhcpv6PdEnabled;
+        }
+        bool operator!=(const Configuration &aOther) const { return !((*this) == aOther); }
+    };
+
     /**
      * Create a Thread Controller Instance.
      *
@@ -156,6 +168,14 @@ public:
      * @param[in] aReceiver  A receiver to get the async result of this operation.
      */
     virtual void SetThreadEnabled(bool aEnabled, const AsyncResultReceiver aReceiver) = 0;
+
+    /**
+     * Configures the Thread stack.
+     *
+     * @param[in] aConfiguration  The configuration.
+     * @param[in] aReceiver       A receiver to get the async result of this operation.
+     */
+    virtual void SetConfiguration(Configuration aConfiguration, const AsyncResultReceiver &aReceiver) = 0;
 
     /**
      * Returns the co-processor type.

@@ -166,6 +166,14 @@ void NcpHost::SetThreadEnabled(bool aEnabled, const AsyncResultReceiver aReceive
     mTaskRunner.Post([aReceiver](void) { aReceiver(OT_ERROR_NOT_IMPLEMENTED, "Not implemented!"); });
 }
 
+void NcpHost::SetConfiguration(Configuration aConfig, const AsyncResultReceiver &aReceiver)
+{
+    OT_UNUSED_VARIABLE(aConfig);
+
+    // TODO: Implement SetConfiguration under NCP mode.
+    mTaskRunner.Post([aReceiver](void) { aReceiver(OT_ERROR_NOT_IMPLEMENTED, "Not implemented!"); });
+}
+
 void NcpHost::Process(const MainloopContext &aMainloop)
 {
     mSpinelDriver.Process(&aMainloop);
