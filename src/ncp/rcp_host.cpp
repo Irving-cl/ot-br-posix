@@ -33,6 +33,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+
+#include <net/if.h>
 
 #include <openthread/backbone_router_ftd.h>
 #include <openthread/border_routing.h>
@@ -103,6 +106,7 @@ RcpHost::RcpHost(const char                      *aInterfaceName,
                  bool                             aEnableAutoAttach)
     : mInstance(nullptr)
     , mEnableAutoAttach(aEnableAutoAttach)
+    , mInfraIcmp6Socket(-1)
 {
     VerifyOrDie(aRadioUrls.size() <= OT_PLATFORM_CONFIG_MAX_RADIO_URLS, "Too many Radio URLs!");
 
@@ -461,6 +465,75 @@ exit:
     {
         mTaskRunner.Post([aReceiver, error](void) { aReceiver(error, ""); });
     }
+}
+
+void RcpHost::SetInfraLinkInterfaceName(const std::string         &aInterfaceName,
+                                        int                        aIcmp6Socket,
+                                        const AsyncResultReceiver &aReceiver)
+{
+    otError      error = OT_ERROR_NONE;
+    std::string  errorMsg;
+    unsigned int infraIfIndex = if_nametoindex(aInterfaceName.c_str());
+
+    otbrLogInfo("Setting infra link state: %s", aInterfaceName.c_str());
+
+    VerifyOrExit(mInstance != nullptr, error = OT_ERROR_INVALID_STATE, errorMsg = "OT is not initialized");
+    VerifyOrExit(mInfraInterfaceName != aInterfaceName || mInfraIcmp6Socket != aIcmp6Socket);
+
+    if (infraIfIndex != 0 && aIcmp6Socket > 0)
+    {
+#if OTBR_ENABLE_BORDER_ROUTING
+        SuccessOrExit(error    = otBorderRoutingSetEnabled(mInstance, false /* aEnabled */),
+                      errorMsg = "failed to disable border routing");
+#endif
+
+        otSysSetInfraNetif(aInterfaceName.c_str(), aIcmp6Socket);
+
+#if OTBR_ENABLE_BORDER_ROUTING
+        SuccessOrExit(error    = otBorderRoutingInit(mInstance, infraIfIndex, otSysInfraIfIsRunning()),
+                      errorMsg = "failed to initialize border routing");
+        SuccessOrExit(error    = otBorderRoutingSetEnabled(mInstance, true /* aEnabled */),
+                      errorMsg = "failed to enable border routing");
+#endif
+
+#if OTBR_ENABLE_BACKBONE_ROUTER
+        // TODO: Make BBR independently configurable
+        otBackboneRouterSetEnabled(mInstance, true /* aEnabled */);
+#endif
+    }
+    else
+    {
+#if OTBR_ENABLE_BORDER_ROUTING
+        SuccessOrExit(error    = otBorderRoutingSetEnabled(mInstance, false /* aEnabled */),
+                      errorMsg = "failed to disable border routing");
+#endif
+#if OTBR_ENABLE_BACKBONE_ROUTER
+        otBackboneRouterSetEnabled(mInstance, false /* aEnabled */);
+#endif
+    }
+
+    mInfraInterfaceName = aInterfaceName;
+    mInfraIcmp6Socket   = aIcmp6Socket;
+
+exit:
+    if (error != OT_ERROR_NONE)
+    {
+        OT_UNUSED_VARIABLE(close(aIcmp6Socket));
+    }
+    mTaskRunner.Post([aReceiver, error, errorMsg](void) { aReceiver(error, errorMsg); });
+}
+
+void RcpHost::SetInfraLinkNat64Prefix(const std::string &aNat64Prefix, const AsyncResultReceiver &aReceiver)
+{
+    otError     error = OT_ERROR_NONE;
+    std::string errorMsg;
+
+    otbrLogInfo("Setting infra link NAT64 prefix: %s", aNat64Prefix.c_str());
+
+    VerifyOrExit(mInstance != nullptr, error = OT_ERROR_INVALID_STATE, errorMsg = "OT is not initialized");
+
+exit:
+    mTaskRunner.Post([aReceiver, error, errorMsg](void) { aReceiver(error, errorMsg); });
 }
 
 void RcpHost::DisableThreadAfterDetach(void *aContext)

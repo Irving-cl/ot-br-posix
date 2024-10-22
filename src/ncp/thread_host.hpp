@@ -158,6 +158,31 @@ public:
     virtual void SetThreadEnabled(bool aEnabled, const AsyncResultReceiver aReceiver) = 0;
 
     /**
+     * This method sets the infrastructure network interface.
+     *
+     * 1. If the host hasn't been initialized, @p aReceiver will be invoked with error OT_ERROR_INVALID_STATE.
+     * 2. If the input interface @p aInterfaceName or the Icmp6 socket @p aIcmp6Socket isn't valid, the border
+     *    routing and backbone function will be disabled.
+     *
+     * @param[in] aInterfaceName  The infra network interface name.
+     * @param[in] aIcmp6Socket    The ICMPv6 socket on the infrastructure network.
+     * @param[in] aReceiver       A receiver to get the async result of this operation.
+     */
+    virtual void SetInfraLinkInterfaceName(const std::string         &aInterfaceName,
+                                           int                        aIcmp6Socket,
+                                           const AsyncResultReceiver &aReceiver) = 0;
+
+    /**
+     * This method sets the NAT64 prefix discovered from infrastructure link.
+     *
+     * If the host hasn't been initialized, @p aReceiver will be invoked with error OT_ERROR_INVALID_STATE.
+     *
+     * @param[in] aNat64Prefix   The NAT64 prefix discovered from the infra link.
+     * @param[in] aReceiver      A receiver to get the async result of this operation.
+     */
+    virtual void SetInfraLinkNat64Prefix(const std::string &aNat64Prefix, const AsyncResultReceiver &aReceiver) = 0;
+
+    /**
      * Returns the co-processor type.
      */
     virtual CoprocessorType GetCoprocessorType(void) = 0;

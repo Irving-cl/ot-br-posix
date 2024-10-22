@@ -166,6 +166,25 @@ void NcpHost::SetThreadEnabled(bool aEnabled, const AsyncResultReceiver aReceive
     mTaskRunner.Post([aReceiver](void) { aReceiver(OT_ERROR_NOT_IMPLEMENTED, "Not implemented!"); });
 }
 
+void NcpHost::SetInfraLinkInterfaceName(const std::string         &aInterfaceName,
+                                        int                        aIcmp6Socket,
+                                        const AsyncResultReceiver &aReceiver)
+{
+    OT_UNUSED_VARIABLE(aInterfaceName);
+    OT_UNUSED_VARIABLE(aIcmp6Socket);
+
+    // TODO: Implement SetInfraLinkInterfaceName under NCP mode.
+    mTaskRunner.Post([aReceiver](void) { aReceiver(OT_ERROR_NOT_IMPLEMENTED, "Not implemented!"); });
+}
+
+void NcpHost::SetInfraLinkNat64Prefix(const std::string &aNat64Prefix, const AsyncResultReceiver &aReceiver)
+{
+    OT_UNUSED_VARIABLE(aNat64Prefix);
+
+    // TODO: Implement SetInfraLinkNat64Prefix under NCP mode.
+    mTaskRunner.Post([aReceiver](void) { aReceiver(OT_ERROR_NOT_IMPLEMENTED, "Not implemented!"); });
+}
+
 void NcpHost::Process(const MainloopContext &aMainloop)
 {
     mSpinelDriver.Process(&aMainloop);

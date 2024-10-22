@@ -209,6 +209,10 @@ public:
     void ScheduleMigration(const otOperationalDatasetTlvs &aPendingOpDatasetTlvs,
                            const AsyncResultReceiver       aReceiver) override;
     void SetThreadEnabled(bool aEnabled, const AsyncResultReceiver aReceiver) override;
+    void SetInfraLinkInterfaceName(const std::string         &aInterfaceName,
+                                   int                        aIcmp6Socket,
+                                   const AsyncResultReceiver &aReceiver) override;
+    void SetInfraLinkNat64Prefix(const std::string &aNat64Prefix, const AsyncResultReceiver &aReceiver) override;
 
     CoprocessorType GetCoprocessorType(void) override
     {
@@ -267,6 +271,10 @@ private:
     bool                                       mEnableAutoAttach = false;
 
     AsyncResultReceiver mSetThreadEnabledReceiver;
+
+    std::string mInfraInterfaceName;
+    int         mInfraIcmp6Socket;
+    std::string mNat64Prefix;
 
 #if OTBR_ENABLE_FEATURE_FLAGS
     // The applied FeatureFlagList in ApplyFeatureFlagList call, used for debugging purpose.
