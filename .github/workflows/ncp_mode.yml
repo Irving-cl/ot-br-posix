@@ -59,7 +59,9 @@ jobs:
       with:
         submodules: true
     - name: Bootstrap
-      run: tests/scripts/bootstrap.sh
+      run: |
+        tests/scripts/bootstrap.sh
+        sudo apt-get --no-install-recommends install -y socat
     - name: Build
       run: |
         OTBR_BUILD_DIR="./build/temp" script/cmake-build ${OTBR_OPTIONS}
