@@ -41,6 +41,7 @@
 #include <openthread/error.h>
 #include <openthread/link.h>
 #include <openthread/thread.h>
+#include <openthread/platform/dnssd.h>
 
 #include "lib/spinel/spinel.h"
 #include "lib/spinel/spinel_buffer.hpp"
@@ -49,6 +50,7 @@
 
 #include "common/task_runner.hpp"
 #include "common/types.hpp"
+#include "mdns/mdns.hpp"
 #include "ncp/async_task.hpp"
 #include "ncp/posix/infra_if.hpp"
 #include "ncp/posix/netif.hpp"
@@ -246,6 +248,35 @@ public:
         mInfraIfIcmp6NdCallback = aCallback;
     }
 
+    /**
+     * This method enables/disables the SRP Server on NCP.
+     *
+     * @param[in] aEnable  A boolean to enable/disable the SRP server.
+     *
+     */
+    void SrpServerSetEnabled(bool aEnabled);
+    /**
+     * This method enables/disables the auto-enable mode on SRP Server on NCP.
+     *
+     * @param[in] aEnable  A boolean to enable/disable the SRP server.
+     *
+     */
+    void SrpServerSetAutoEnableMode(bool aEnabled);
+    /**
+     * This method sets the dnssd state on NCP.
+     *
+     * @param[in] aState  The dnssd state.
+     *
+     */
+    void DnssdSetState(Mdns::Publisher::State aState);
+
+    /**
+     * This method sets the mDNS Publisher object.
+     *
+     * @param[in] aPublisher  A pointer to the mDNS Publisher object.
+     */
+    void SetMdnsPublisher(otbr::Mdns::Publisher *aPublisher) { mPublisher = aPublisher; }
+
 private:
     using FailureHandler = std::function<void(otError)>;
 
@@ -283,6 +314,8 @@ private:
     void      HandleNotification(const uint8_t *aFrame, uint16_t aLength);
     void      HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_t aLength);
     void      HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
+    void      HandleValueInserted(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
+    void      HandleValueRemoved(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
     otbrError HandleResponseForPropSet(spinel_tid_t      aTid,
                                        spinel_prop_key_t aKey,
                                        const uint8_t    *aData,
@@ -321,6 +354,14 @@ private:
                                 const otIp6Address *&aAddr,
                                 const uint8_t      *&aData,
                                 uint16_t            &aDataLen);
+    otError ParseDnssdHost(const uint8_t *aBuf, uint8_t aLen, otPlatDnssdHost &aHost, otPlatDnssdRequestId &aId);
+    otError ParseDnssdService(const uint8_t                *aBuf,
+                              uint8_t                       aLen,
+                              otPlatDnssdService           &aService,
+                              otPlatDnssdRequestId         &aId,
+                              Mdns::Publisher::SubTypeList &aSubTypeList);
+    otError ParseDnssdKey(const uint8_t *aBuf, uint8_t aLen, otPlatDnssdKey &aKey, otPlatDnssdRequestId &aId);
+    otError SendDnssdResult(otPlatDnssdRequestId aRequestId, otError aError);
 
     otbrError SetInfraIf(uint32_t                       aInfraIfIndex,
                          bool                           aIsRunning,
@@ -346,7 +387,8 @@ private:
 
     TaskRunner mTaskRunner;
 
-    PropsObserver *mPropsObserver;
+    PropsObserver         *mPropsObserver;
+    otbr::Mdns::Publisher *mPublisher;
 
     AsyncTaskPtr mDatasetSetActiveTask;
     AsyncTaskPtr mDatasetMgmtSetPendingTask;

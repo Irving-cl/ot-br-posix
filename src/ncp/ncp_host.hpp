@@ -38,6 +38,7 @@
 #include "lib/spinel/spinel_driver.hpp"
 
 #include "common/mainloop.hpp"
+#include "mdns/mdns.hpp"
 #include "ncp/ncp_spinel.hpp"
 #include "ncp/thread_host.hpp"
 #include "posix/netif.hpp"
@@ -69,7 +70,7 @@ private:
     otOperationalDatasetTlvs mDatasetActiveTlvs;
 };
 
-class NcpHost : public MainloopProcessor, public ThreadHost, public NcpNetworkProperties
+class NcpHost : public MainloopProcessor, public ThreadHost, public NcpNetworkProperties, public Mdns::StateObserver
 {
 public:
     /**
@@ -104,7 +105,11 @@ public:
     void Update(MainloopContext &aMainloop) override;
     void Process(const MainloopContext &aMainloop) override;
 
+    void SetMdnsPublisher(otbr::Mdns::Publisher *aPublisher);
+
 private:
+    void HandleMdnsState(otbr::Mdns::Publisher::State aState) override;
+
     ot::Spinel::SpinelDriver &mSpinelDriver;
     otPlatformConfig          mConfig;
     NcpSpinel                 mNcpSpinel;

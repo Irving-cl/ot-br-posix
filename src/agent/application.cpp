@@ -298,6 +298,12 @@ void Application::DeinitRcpMode(void)
 
 void Application::InitNcpMode(void)
 {
+#if OTBR_ENABLE_MDNS
+    Ncp::NcpHost *ncpHost = static_cast<Ncp::NcpHost *>(mHost.get());
+    ncpHost->SetMdnsPublisher(mPublisher.get());
+    mMdnsStateSubject.AddObserver(ncpHost);
+    mPublisher->Start();
+#endif
 #if OTBR_ENABLE_DBUS_SERVER
     mDBusAgent->Init(*mBorderAgent);
 #endif
@@ -305,7 +311,9 @@ void Application::InitNcpMode(void)
 
 void Application::DeinitNcpMode(void)
 {
-    /* empty */
+#if OTBR_ENABLE_MDNS
+    mPublisher->Stop();
+#endif
 }
 
 } // namespace otbr
