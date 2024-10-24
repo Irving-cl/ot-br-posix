@@ -214,5 +214,15 @@ void NcpHost::Update(MainloopContext &aMainloop)
     mNetif.UpdateFdSet(&aMainloop);
 }
 
+void NcpHost::SetMdnsPublisher(otbr::Mdns::Publisher *aPublisher)
+{
+    mNcpSpinel.SetMdnsPublisher(aPublisher);
+}
+
+void NcpHost::HandleMdnsState(otbr::Mdns::Publisher::State aState)
+{
+    (void)aState;
+}
+
 } // namespace Ncp
 } // namespace otbr
