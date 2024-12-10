@@ -36,6 +36,7 @@
 #include <string.h>
 
 #include <openthread/backbone_router_ftd.h>
+#include <openthread/border_agent.h>
 #include <openthread/border_routing.h>
 #include <openthread/dataset.h>
 #include <openthread/dnssd_server.h>
@@ -47,6 +48,7 @@
 #include <openthread/thread.h>
 #include <openthread/thread_ftd.h>
 #include <openthread/trel.h>
+#include <openthread/platform/dnssd.h>
 #include <openthread/platform/logging.h>
 #include <openthread/platform/misc.h>
 #include <openthread/platform/radio.h>
@@ -274,6 +276,10 @@ void RcpHost::Init(void)
 #endif
 #endif // OTBR_ENABLE_FEATURE_FLAGS
 
+    otBorderAgentSetStateChangedCallback(mInstance, RcpHost::HandleBaStateChanged, this);
+    otBorderAgentSetMeshCopTxtChangedCallback(mInstance, RcpHost::HandleMeshCopTxtValuesChanged, this);
+    otBorderAgentSetEphemeralKeyCallback(mInstance, RcpHost::HandleEpskcStateChanged, this);
+
     mThreadHelper = MakeUnique<otbr::agent::ThreadHelper>(mInstance, this);
 
     OtNetworkProperties::SetInstance(mInstance);
@@ -335,6 +341,9 @@ void RcpHost::Deinit(void)
     mSetThreadEnabledReceiver  = nullptr;
     mScheduleMigrationReceiver = nullptr;
     mDetachGracefullyCallbacks.clear();
+    mBorderAgentStateChangedCallback         = nullptr;
+    mBorderAgentMeshCopValuesChangedCallback = nullptr;
+    mEphemeralKeyStateChangedCallbacks.clear();
 }
 
 void RcpHost::HandleStateChanged(otChangedFlags aFlags)
@@ -474,6 +483,7 @@ void RcpHost::Join(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, const A
     VerifyOrExit(mInstance != nullptr, error = OT_ERROR_INVALID_STATE, errorMsg = "OT is not initialized");
     VerifyOrExit(mThreadEnabledState != ThreadEnabledState::kStateDisabling, error = OT_ERROR_BUSY,
                  errorMsg = "Thread is disabling");
+    otbrLogInfo("!!! Join, Enabled State:%d", mThreadEnabledState);
     VerifyOrExit(mThreadEnabledState == ThreadEnabledState::kStateEnabled, error = OT_ERROR_INVALID_STATE,
                  errorMsg = "Thread is not enabled");
 
@@ -490,7 +500,6 @@ void RcpHost::Join(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs, const A
         errorMsg = "Already Joined the target network";
         ExitNow();
     }
-
     if (GetDeviceRole() != OT_DEVICE_ROLE_DISABLED)
     {
         ThreadDetachGracefully([aActiveOpDatasetTlvs, aReceiver, this] {
@@ -780,6 +789,76 @@ void RcpHost::UpdateThreadEnabledState(ThreadEnabledState aState)
     {
         callback(mThreadEnabledState);
     }
+}
+
+void RcpHost::HandleBaStateChanged(void *aContext)
+{
+    static_cast<RcpHost *>(aContext)->HandleBaStateChanged();
+}
+
+void RcpHost::HandleBaStateChanged(void)
+{
+    if (mBorderAgentStateChangedCallback)
+    {
+        mBorderAgentStateChangedCallback(otBorderAgentGetState(mInstance), otBorderAgentGetUdpPort(mInstance));
+    }
+}
+
+void RcpHost::HandleMeshCopTxtValuesChanged(const uint8_t *aTxtData, uint16_t aLength, void *aContext)
+{
+    static_cast<RcpHost *>(aContext)->HandleMeshCopTxtValuesChanged(aTxtData, aLength);
+}
+
+void RcpHost::HandleMeshCopTxtValuesChanged(const uint8_t *aTxtData, uint16_t aLength)
+{
+    if (mBorderAgentMeshCopValuesChangedCallback)
+    {
+        mBorderAgentMeshCopValuesChangedCallback(aTxtData, aLength);
+    }
+}
+
+void RcpHost::HandleEpskcStateChanged(void *aContext)
+{
+    static_cast<RcpHost *>(aContext)->HandleEpskcStateChanged();
+}
+
+void RcpHost::HandleEpskcStateChanged(void)
+{
+    bool               isEpskcActive = otBorderAgentIsEphemeralKeyActive(mInstance);
+    otBorderAgentState baState       = otBorderAgentGetState(mInstance);
+    uint16_t           port          = otBorderAgentGetUdpPort(mInstance);
+
+    for (auto callback : mEphemeralKeyStateChangedCallbacks)
+    {
+        callback(isEpskcActive, baState, port);
+    }
+}
+
+void RcpHost::NotifyDnssdStateChange(otPlatDnssdState aState)
+{
+    OTBR_UNUSED_VARIABLE(aState);
+
+    otPlatDnssdStateHandleStateChange(mInstance);
+}
+
+void RcpHost::BorderAgentSetEphemeralKeyFeatureEnabled(bool aEnabled)
+{
+    (void)aEnabled;
+}
+
+void RcpHost::BorderAgentAddEphemeralKeyCallback(EphemeralKeyStateChangedCallback aCallback)
+{
+    mEphemeralKeyStateChangedCallbacks.push_back(aCallback);
+}
+
+void RcpHost::BorderAgentSetStateChangedCallback(BorderAgentStateChangedCallback aCallback)
+{
+    mBorderAgentStateChangedCallback = aCallback;
+}
+
+void RcpHost::BorderAgentSetMeshCopValuesChangedCallback(BorderAgentMeshCopValuesChangedCallback aCallback)
+{
+    mBorderAgentMeshCopValuesChangedCallback = aCallback;
 }
 
 /*

@@ -211,6 +211,11 @@ public:
 #endif
     void AddThreadStateChangedCallback(ThreadStateChangedCallback aCallback) override;
     void AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) override;
+    void NotifyDnssdStateChange(otPlatDnssdState aState) override;
+    void BorderAgentSetEphemeralKeyFeatureEnabled(bool aEnabled) override;
+    void BorderAgentAddEphemeralKeyCallback(EphemeralKeyStateChangedCallback aCallback) override;
+    void BorderAgentSetStateChangedCallback(BorderAgentStateChangedCallback aCallback) override;
+    void BorderAgentSetMeshCopValuesChangedCallback(BorderAgentMeshCopValuesChangedCallback aCallback) override;
 
     CoprocessorType GetCoprocessorType(void) override
     {
@@ -254,6 +259,13 @@ private:
     static void SendMgmtPendingSetCallback(otError aError, void *aContext);
     void        SendMgmtPendingSetCallback(otError aError);
 
+    static void HandleBaStateChanged(void *aContext);
+    void        HandleBaStateChanged(void);
+    static void HandleMeshCopTxtValuesChanged(const uint8_t *aTxtData, uint16_t aLength, void *aContext);
+    void        HandleMeshCopTxtValuesChanged(const uint8_t *aTxtData, uint16_t aLength);
+    static void HandleEpskcStateChanged(void *aContext);
+    void        HandleEpskcStateChanged(void);
+
     bool IsAutoAttachEnabled(void);
     void DisableAutoAttach(void);
 
@@ -270,14 +282,17 @@ private:
     std::vector<std::function<void(void)>>     mResetHandlers;
     TaskRunner                                 mTaskRunner;
 
-    std::vector<ThreadStateChangedCallback> mThreadStateChangedCallbacks;
-    std::vector<ThreadEnabledStateCallback> mThreadEnabledStateChangedCallbacks;
-    bool                                    mEnableAutoAttach = false;
-    ThreadEnabledState                      mThreadEnabledState;
-    AsyncResultReceiver                     mJoinReceiver;
-    AsyncResultReceiver                     mSetThreadEnabledReceiver;
-    AsyncResultReceiver                     mScheduleMigrationReceiver;
-    std::vector<DetachGracefullyCallback>   mDetachGracefullyCallbacks;
+    std::vector<ThreadStateChangedCallback>       mThreadStateChangedCallbacks;
+    std::vector<ThreadEnabledStateCallback>       mThreadEnabledStateChangedCallbacks;
+    bool                                          mEnableAutoAttach = false;
+    ThreadEnabledState                            mThreadEnabledState;
+    AsyncResultReceiver                           mJoinReceiver;
+    AsyncResultReceiver                           mSetThreadEnabledReceiver;
+    AsyncResultReceiver                           mScheduleMigrationReceiver;
+    std::vector<DetachGracefullyCallback>         mDetachGracefullyCallbacks;
+    BorderAgentStateChangedCallback               mBorderAgentStateChangedCallback;
+    BorderAgentMeshCopValuesChangedCallback       mBorderAgentMeshCopValuesChangedCallback;
+    std::vector<EphemeralKeyStateChangedCallback> mEphemeralKeyStateChangedCallbacks;
 
 #if OTBR_ENABLE_FEATURE_FLAGS
     // The applied FeatureFlagList in ApplyFeatureFlagList call, used for debugging purpose.

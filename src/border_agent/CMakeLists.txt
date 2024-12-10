@@ -27,8 +27,10 @@
 #
 
 add_library(otbr-border-agent
-    border_agent.cpp
-    border_agent.hpp
+    meshcop_service_manager.cpp
+    meshcop_service_manager.hpp
+    udp_proxy.cpp
+    udp_proxy.hpp
 )
 
 target_link_libraries(otbr-border-agent PRIVATE

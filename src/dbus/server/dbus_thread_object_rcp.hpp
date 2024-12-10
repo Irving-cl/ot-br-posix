@@ -40,7 +40,7 @@
 
 #include <openthread/link.h>
 
-#include "border_agent/border_agent.hpp"
+#include "border_agent/meshcop_service_manager.hpp"
 #include "dbus/server/dbus_object.hpp"
 #include "host/rcp_host.hpp"
 #include "mdns/mdns.hpp"
@@ -72,8 +72,7 @@ public:
     DBusThreadObjectRcp(DBusConnection      &aConnection,
                         const std::string   &aInterfaceName,
                         otbr::Host::RcpHost &aHost,
-                        Mdns::Publisher     *aPublisher,
-                        otbr::BorderAgent   &aBorderAgent);
+                        Mdns::Publisher     *aPublisher);
 
     otbrError Init(void) override;
 
@@ -92,7 +91,6 @@ private:
     void AttachHandler(DBusRequest &aRequest);
     void AttachAllNodesToHandler(DBusRequest &aRequest);
     void DetachHandler(DBusRequest &aRequest);
-    void LeaveHandler(DBusRequest &aRequest);
     void FactoryResetHandler(DBusRequest &aRequest);
     void ResetHandler(DBusRequest &aRequest);
     void JoinerStartHandler(DBusRequest &aRequest);
@@ -104,6 +102,8 @@ private:
     void RemoveExternalRouteHandler(DBusRequest &aRequest);
     void UpdateMeshCopTxtHandler(DBusRequest &aRequest);
     void GetPropertiesHandler(DBusRequest &aRequest);
+    void SetThreadEnabledHandler(DBusRequest &aRequest);
+    void JoinHandler(DBusRequest &aRequest);
     void LeaveNetworkHandler(DBusRequest &aRequest);
     void SetNat64Enabled(DBusRequest &aRequest);
     void ActivateEphemeralKeyModeHandler(DBusRequest &aRequest);
@@ -184,7 +184,6 @@ private:
     otbr::Host::RcpHost                                 &mHost;
     std::unordered_map<std::string, PropertyHandlerType> mGetPropertyHandlers;
     otbr::Mdns::Publisher                               *mPublisher;
-    otbr::BorderAgent                                   &mBorderAgent;
 };
 
 /**

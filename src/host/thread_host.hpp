@@ -37,9 +37,12 @@
 #include <functional>
 #include <memory>
 
+#include <openthread/border_agent.h>
 #include <openthread/dataset.h>
 #include <openthread/error.h>
 #include <openthread/thread.h>
+
+#include <openthread/platform/dnssd.h>
 
 #include "lib/spinel/coprocessor_type.h"
 
@@ -118,9 +121,13 @@ public:
     using AsyncResultReceiver = std::function<void(otError, const std::string &)>;
     using ChannelMasksReceiver =
         std::function<void(uint32_t /*aSupportedChannelMask*/, uint32_t /*aPreferredChannelMask*/)>;
-    using DeviceRoleHandler          = std::function<void(otError, otDeviceRole)>;
-    using ThreadStateChangedCallback = std::function<void(otChangedFlags aFlags)>;
-    using ThreadEnabledStateCallback = std::function<void(ThreadEnabledState aState)>;
+    using DeviceRoleHandler                       = std::function<void(otError, otDeviceRole)>;
+    using ThreadStateChangedCallback              = std::function<void(otChangedFlags aFlags)>;
+    using ThreadEnabledStateCallback              = std::function<void(ThreadEnabledState aState)>;
+    using BorderAgentStateChangedCallback         = std::function<void(otBorderAgentState aState, uint16_t aPort)>;
+    using BorderAgentMeshCopValuesChangedCallback = std::function<void(const uint8_t *aTxtData, uint16_t aLength)>;
+    using EphemeralKeyStateChangedCallback =
+        std::function<void(bool aIsEpskcActive, otBorderAgentState aState, uint16_t aPort)>;
 
     struct ChannelMaxPower
     {
@@ -250,6 +257,44 @@ public:
     virtual void AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) = 0;
 
     /**
+     *
+     */
+    virtual void NotifyDnssdStateChange(otPlatDnssdState aState) = 0;
+
+    /**
+     * This method enables/disables the ephemeral key feature.
+     *
+     * Enabling the feature doesn't mean starting to use an Ephemeral key. The Ephemeral key can only be used when
+     * the feature is enabled. This information will be displayed in a bitmap in the txt records of the meshcop
+     * service published by this Border Router.
+     *
+     * @param[in] aEnabled  If to enable or disable the Ephemeral key feature.
+     */
+    virtual void BorderAgentSetEphemeralKeyFeatureEnabled(bool aEnabled) = 0;
+
+    /**
+     * This method adds a callback that will be invoked when there are any changes related to the ephemeral key.
+     *
+     * @param[in] aCallback  The callback function.
+     */
+    virtual void BorderAgentAddEphemeralKeyCallback(EphemeralKeyStateChangedCallback aCallback) = 0;
+
+    /**
+     * This method sets a callback that will be invoked when there are any changes on the state of Border Agent.
+     *
+     * @param[in] aCallback  The callback function.
+     */
+    virtual void BorderAgentSetStateChangedCallback(BorderAgentStateChangedCallback aCallback) = 0;
+
+    /**
+     * This method sets a callback that will be invoked when there are any changes on the MeshCoP service values from
+     * Thread core.
+     *
+     * @param[in] aCallback  The callback function.
+     */
+    virtual void BorderAgentSetMeshCopValuesChangedCallback(BorderAgentMeshCopValuesChangedCallback aCallback) = 0;
+
+    /**
      * Returns the co-processor type.
      */
     virtual CoprocessorType GetCoprocessorType(void) = 0;
@@ -280,6 +325,17 @@ public:
      * The destructor.
      */
     virtual ~ThreadHost(void) = default;
+
+    /**
+     * This method creates ephemeral key in the Border Agent.
+     *
+     * @param[out] aEphemeralKey  The ephemeral key digit string of length 9 with first 8 digits randomly
+     *                            generated, and the last 9th digit as verhoeff checksum.
+     *
+     * @returns OTBR_ERROR_INVALID_ARGS  If Verhoeff checksum calculate returns error.
+     * @returns OTBR_ERROR_NONE          If successfully generate the ePSKc.
+     */
+    static otbrError CreateEphemeralKey(std::string &aEphemeralKey);
 };
 
 } // namespace Host

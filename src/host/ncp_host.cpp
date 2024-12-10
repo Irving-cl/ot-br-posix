@@ -253,10 +253,34 @@ void NcpHost::AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aC
     OT_UNUSED_VARIABLE(aCallback);
 }
 
+void NcpHost::NotifyDnssdStateChange(otPlatDnssdState aState)
+{
+    OTBR_UNUSED_VARIABLE(aState);
+}
+
+void NcpHost::BorderAgentSetEphemeralKeyFeatureEnabled(bool aEnabled)
+{
+    (void)aEnabled;
+}
+
+void NcpHost::BorderAgentAddEphemeralKeyCallback(EphemeralKeyStateChangedCallback aCallback)
+{
+    (void)aCallback;
+}
+
+void NcpHost::BorderAgentSetStateChangedCallback(BorderAgentStateChangedCallback aCallback)
+{
+    mNcpSpinel.BorderAgentSetStateChangedCallback(aCallback);
+}
+
+void NcpHost::BorderAgentSetMeshCopValuesChangedCallback(BorderAgentMeshCopValuesChangedCallback aCallback)
+{
+    mNcpSpinel.BorderAgentSetMeshCopValuesChangedCallback(aCallback);
+}
+
 void NcpHost::Process(const MainloopContext &aMainloop)
 {
     mSpinelDriver.Process(&aMainloop);
-
     mNetif.Process(&aMainloop);
 }
 

@@ -46,6 +46,7 @@
 
 #define OTBR_DBUS_SCAN_METHOD "Scan"
 #define OTBR_DBUS_ENERGY_SCAN_METHOD "EnergyScan"
+#define OTBR_DBUS_SET_THREAD_ENABLED_METHOD "SetThreadEnabled"
 #define OTBR_DBUS_ATTACH_METHOD "Attach"
 #define OTBR_DBUS_DETACH_METHOD "Detach"
 #define OTBR_DBUS_JOIN_METHOD "Join"

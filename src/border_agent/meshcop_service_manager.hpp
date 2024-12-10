@@ -40,14 +40,10 @@
 
 #include <stdint.h>
 
-#include "backbone_router/backbone_agent.hpp"
 #include "common/code_utils.hpp"
 #include "common/mainloop.hpp"
 #include "host/rcp_host.hpp"
 #include "mdns/mdns.hpp"
-#include "sdp_proxy/advertising_proxy.hpp"
-#include "sdp_proxy/discovery_proxy.hpp"
-#include "trel_dnssd/trel_dnssd.hpp"
 
 #ifndef OTBR_VENDOR_NAME
 #define OTBR_VENDOR_NAME "OpenThread"
@@ -63,11 +59,13 @@
 
 namespace otbr {
 
+namespace BorderAgent {
+
 /**
  * @addtogroup border-router-border-agent
  *
  * @brief
- *   This module includes definition for Thread border agent
+ *   This module includes definition for Thread border agent MeshCoP Service Manager
  *
  * @{
  */
@@ -75,26 +73,22 @@ namespace otbr {
 /**
  * This class implements Thread border agent functionality.
  */
-class BorderAgent : public Mdns::StateObserver, private NonCopyable
+class MeshCopServiceManager : public Mdns::StateObserver, private NonCopyable
 {
 public:
-    /** The callback for receiving ephemeral key changes. */
-    using EphemeralKeyChangedCallback = std::function<void(void)>;
-
     /**
      * The constructor to initialize the Thread border agent.
      *
-     * @param[in] aHost       A reference to the Thread controller.
      * @param[in] aPublisher  A reference to the mDNS Publisher.
      */
-    BorderAgent(otbr::Host::RcpHost &aHost, Mdns::Publisher &aPublisher);
+    MeshCopServiceManager(Mdns::Publisher &aPublisher);
 
-    ~BorderAgent(void) = default;
+    ~MeshCopServiceManager(void) = default;
 
     /**
      * Overrides MeshCoP service (i.e. _meshcop._udp) instance name, product name, vendor name and vendor OUI.
      *
-     * This method must be called before this BorderAgent is enabled by SetEnabled.
+     * This method must be called before this instance is enabled by SetEnabled.
      *
      * @param[in] aServiceInstanceName    The service instance name; suffix may be appended to this value to avoid
      *                                    name conflicts.
@@ -116,23 +110,11 @@ public:
                                       const Mdns::Publisher::TxtList &aNonStandardTxtEntries = {});
 
     /**
-     * This method enables/disables the Border Agent.
+     * This method enables/disables the MeshCopServiceManager.
      *
-     * @param[in] aIsEnabled  Whether to enable the Border Agent.
+     * @param[in] aIsEnabled  Whether to enable the MeshCopServiceManager.
      */
     void SetEnabled(bool aIsEnabled);
-
-    /**
-     * This method enables/disables the Border Agent Ephemeral Key feature.
-     *
-     * @param[in] aIsEnabled  Whether to enable the BA Ephemeral Key feature.
-     */
-    void SetEphemeralKeyEnabled(bool aIsEnabled);
-
-    /**
-     * This method returns the Border Agent Ephemeral Key feature state.
-     */
-    bool GetEphemeralKeyEnabled(void) const { return mIsEphemeralKeyEnabled; }
 
     /**
      * This method handles mDNS publisher's state changes.
@@ -141,49 +123,49 @@ public:
      */
     void HandleMdnsState(Mdns::Publisher::State aState) override;
 
+#if OTBR_ENABLE_DBUS_SERVER
     /**
-     * This method creates ephemeral key in the Border Agent.
+     * This method updates the vendor MeshCoP TXT entries.
      *
-     * @param[out] aEphemeralKey  The ephemeral key digit string of length 9 with first 8 digits randomly
-     *                            generated, and the last 9th digit as verhoeff checksum.
-     *
-     * @returns OTBR_ERROR_INVALID_ARGS  If Verhoeff checksum calculate returns error.
-     * @returns OTBR_ERROR_NONE          If successfully generate the ePSKc.
+     * @param[in] aUpdate  The TXT entries to be updated in a map.
      */
-    static otbrError CreateEphemeralKey(std::string &aEphemeralKey);
+    void UpdateVendorMeshCoPTxtEntries(std::map<std::string, std::vector<uint8_t>> aUpdate);
+#endif
 
     /**
-     * This method adds a callback for ephemeral key changes.
-     *
-     * @param[in] aCallback  The callback to receive ephemeral key changed events.
+     * This method handles BorderAgent state changes.
      */
-    void AddEphemeralKeyChangedCallback(EphemeralKeyChangedCallback aCallback);
+    void HandleBorderAgentStateChange(otBorderAgentState aState, uint16_t aPort);
+
+    /**
+     * This method handles OT core MeshCoP TXT value changes.
+     */
+    void HandleOtMeshCopTxtValueChange(const std::vector<uint8_t> &aOtMeshCopTxtValues);
+
+    /**
+     * This method handles Epskc state changes.
+     */
+    void HandleEpskcStateChange(bool aIsEpskcActive, uint16_t aPort);
 
 private:
-    void Start(void);
-    void Stop(void);
-    bool IsEnabled(void) const { return mIsEnabled; }
+    bool IsEnabled(void) const
+    {
+        return mIsEnabled;
+    }
     void PublishMeshCopService(void);
     void UpdateMeshCopService(void);
     void UnpublishMeshCopService(void);
+    void PublishEpskcService(uint16_t aPort);
+    void UnpublishEpskcService(void);
 #if OTBR_ENABLE_DBUS_SERVER
     void HandleUpdateVendorMeshCoPTxtEntries(std::map<std::string, std::vector<uint8_t>> aUpdate);
 #endif
 
-    void HandleThreadStateChanged(otChangedFlags aFlags);
-
-    bool        IsThreadStarted(void) const;
     std::string GetServiceInstanceNameWithExtAddr(const std::string &aServiceInstanceName) const;
     std::string GetAlternativeServiceInstanceName() const;
 
-    static void HandleEpskcStateChanged(void *aContext);
-    void        PublishEpskcService(void);
-    void        UnpublishEpskcService(void);
-
-    otbr::Host::RcpHost &mHost;
-    Mdns::Publisher     &mPublisher;
-    bool                 mIsEnabled;
-    bool                 mIsEphemeralKeyEnabled;
+    Mdns::Publisher &mPublisher;
+    bool             mIsEnabled;
 
     std::map<std::string, std::vector<uint8_t>> mMeshCopTxtUpdate;
 
@@ -203,12 +185,20 @@ private:
     // "OpenThread Border Router #7AC3 (14379)".
     std::string mServiceInstanceName;
 
-    std::vector<EphemeralKeyChangedCallback> mEphemeralKeyChangedCallbacks;
+    // The encoded MeshCoP TXT values from OT core.
+    std::vector<uint8_t> mOtMeshCopTxtValues;
+
+    bool               mIsInitialized;
+    otExtAddress       mExtAddress;
+    uint16_t           mMeshCopUdpPort;
+    otBorderAgentState mBaState;
 };
 
 /**
  * @}
  */
+
+} // namespace BorderAgent
 
 } // namespace otbr
 

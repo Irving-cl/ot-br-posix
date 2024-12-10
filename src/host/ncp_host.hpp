@@ -37,6 +37,7 @@
 #include "lib/spinel/coprocessor_type.h"
 #include "lib/spinel/spinel_driver.hpp"
 
+#include "border_agent/udp_proxy.hpp"
 #include "common/mainloop.hpp"
 #include "host/ncp_spinel.hpp"
 #include "host/thread_host.hpp"
@@ -107,8 +108,14 @@ public:
     void SetChannelMaxPowers(const std::vector<ChannelMaxPower> &aChannelMaxPowers,
                              const AsyncResultReceiver          &aReceiver) override;
 #endif
-    void            AddThreadStateChangedCallback(ThreadStateChangedCallback aCallback) override;
-    void            AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) override;
+    void AddThreadStateChangedCallback(ThreadStateChangedCallback aCallback) override;
+    void AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) override;
+    void NotifyDnssdStateChange(otPlatDnssdState aState) override;
+    void BorderAgentSetEphemeralKeyFeatureEnabled(bool aEnabled) override;
+    void BorderAgentAddEphemeralKeyCallback(EphemeralKeyStateChangedCallback aCallback) override;
+    void BorderAgentSetStateChangedCallback(BorderAgentStateChangedCallback aCallback) override;
+    void BorderAgentSetMeshCopValuesChangedCallback(BorderAgentMeshCopValuesChangedCallback aCallback) override;
+
     CoprocessorType GetCoprocessorType(void) override
     {
         return OT_COPROCESSOR_NCP;

@@ -250,18 +250,44 @@ void DnssdPlatform::SetDnssdStateChangedCallback(DnssdStateChangeCallback aCallb
     mStateChangeCallback = aCallback;
 }
 
+void DnssdPlatform::SetMappingPorts(uint16_t aHostPort, uint16_t aNcpPort)
+{
+    otbrLogWarning("!!! Set Mapping ports, host:%u, ncp:%u", aHostPort, aNcpPort);
+
+    if (aHostPort == 0 || aNcpPort == 0)
+    {
+        mHostPort = aNcpPort = 0;
+    }
+    else
+    {
+        mHostPort = aHostPort;
+        mNcpPort  = aNcpPort;
+    }
+}
+
 void DnssdPlatform::RegisterService(const Service &aService, RequestId aRequestId, RegisterCallback aCallback)
 {
     Mdns::Publisher::SubTypeList subTypeList;
     Mdns::Publisher::TxtData     txtData(aService.mTxtData, aService.mTxtData + aService.mTxtDataLength);
+    uint16_t                     port = aService.mPort;
 
     for (uint16_t index = 0; index < aService.mSubTypeLabelsLength; index++)
     {
         subTypeList.push_back(aService.mSubTypeLabels[index]);
     }
 
-    mPublisher.PublishService(aService.mHostName, aService.mServiceInstance, aService.mServiceType, subTypeList,
-                              aService.mPort, txtData, MakePublisherCallback(aRequestId, aCallback));
+    // Apply port mapping
+    otbrLogWarning("port:%u, NcpPort:%u", port, mNcpPort);
+    if (mNcpPort != 0)
+    {
+        if (port == mNcpPort)
+        {
+            port = mHostPort;
+        }
+    }
+
+    mPublisher.PublishService(aService.mHostName, aService.mServiceInstance, aService.mServiceType, subTypeList, port,
+                              txtData, MakePublisherCallback(aRequestId, aCallback));
 }
 
 void DnssdPlatform::UnregisterService(const Service &aService, RequestId aRequestId, RegisterCallback aCallback)
