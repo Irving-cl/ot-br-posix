@@ -67,7 +67,11 @@ Application::Application(Host::ThreadHost  &aHost,
 #if OTBR_ENABLE_DNSSD_PLAT
     , mDnssdPlatform(*mPublisher)
 #endif
-#if OTBR_ENABLE_DBUS_SERVER && OTBR_ENABLE_BORDER_AGENT
+#if OTBR_ENABLE_BORDER_AGENT
+    , mUdpProxy(aHost)
+    , mMeshCopServiceManager(*mPublisher)
+#endif
+#if OTBR_ENABLE_DBUS_SERVER
     , mDBusAgent(MakeUnique<DBus::DBusAgent>(mHost, *mPublisher))
 #endif
 {
@@ -80,6 +84,15 @@ Application::Application(Host::ThreadHost  &aHost,
 void Application::Init(void)
 {
     mHost.Init();
+
+#if OTBR_ENABLE_MDNS
+#if OTBR_ENABLE_DNSSD_PLAT
+    mDnssdPlatform.SetDnssdStateChangedCallback(
+        [this](otPlatDnssdState aState) { mHost.NotifyDnssdStateChange(aState); });
+    mDnssdPlatform.Start();
+    mMdnsStateSubject.AddObserver(mDnssdPlatform);
+#endif
+#endif
 
     switch (mHost.GetCoprocessorType())
     {
@@ -112,6 +125,13 @@ void Application::Deinit(void)
         break;
     }
 
+#if OTBR_ENABLE_DNSSD_PLAT
+    mDnssdPlatform.Stop();
+#endif
+
+#if OTBR_ENABLE_BORDER_AGENT
+    mUdpProxy.Deinit();
+#endif
     mHost.Deinit();
 }
 
@@ -197,9 +217,6 @@ void Application::HandleSignal(int aSignal)
 void Application::CreateRcpMode(const std::string &aRestListenAddress, int aRestListenPort)
 {
     otbr::Host::RcpHost &rcpHost = static_cast<otbr::Host::RcpHost &>(mHost);
-#if OTBR_ENABLE_BORDER_AGENT
-    mBorderAgent = MakeUnique<BorderAgent>(rcpHost, *mPublisher);
-#endif
 #if OTBR_ENABLE_BACKBONE_ROUTER
     mBackboneAgent = MakeUnique<BackboneRouter::BackboneAgent>(rcpHost, mInterfaceName, mBackboneInterfaceName);
 #endif
@@ -224,6 +241,7 @@ void Application::CreateRcpMode(const std::string &aRestListenAddress, int aRest
 
     OT_UNUSED_VARIABLE(aRestListenAddress);
     OT_UNUSED_VARIABLE(aRestListenPort);
+    OT_UNUSED_VARIABLE(rcpHost);
 }
 
 void Application::InitRcpMode(void)
@@ -231,9 +249,6 @@ void Application::InitRcpMode(void)
     Host::RcpHost &rcpHost = static_cast<otbr::Host::RcpHost &>(mHost);
     OTBR_UNUSED_VARIABLE(rcpHost);
 
-#if OTBR_ENABLE_BORDER_AGENT
-    mMdnsStateSubject.AddObserver(*mBorderAgent);
-#endif
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY
     mMdnsStateSubject.AddObserver(*mAdvertisingProxy);
 #endif
@@ -255,12 +270,21 @@ void Application::InitRcpMode(void)
     mPublisher->Start();
 #endif
 #if OTBR_ENABLE_BORDER_AGENT
+    mHost.BorderAgentSetMeshCoPServiceChangedCallback(
+        [this](bool aIsActive, uint16_t aPort, const uint8_t *aTxtData, uint16_t aLength) {
+            mMeshCopServiceManager.HandleBorderAgentStateChange(aIsActive, aPort);
+            mMeshCopServiceManager.HandleOtMeshCopTxtValueChange(std::vector<uint8_t>(aTxtData, aTxtData + aLength));
+        });
+    mHost.BorderAgentAddEphemeralKeyCallback([this](bool aIsEpskcActive, bool aIsActive, uint16_t aPort) {
+        OTBR_UNUSED_VARIABLE(aIsActive);
+        mMeshCopServiceManager.HandleEpskcStateChange(aIsEpskcActive, aPort);
+    });
 // This is for delaying publishing the MeshCoP service until the correct
-// vendor name and OUI etc. are correctly set by BorderAgent::SetMeshCopServiceValues()
+// vendor name and OUI etc. are correctly set by MeshCopServiceManager::SetMeshCopServiceValues()
 #if OTBR_STOP_BORDER_AGENT_ON_INIT
-    mBorderAgent->SetEnabled(false);
+    mMeshCopServiceManager.SetEnabled(false);
 #else
-    mBorderAgent->SetEnabled(true);
+    mMeshCopServiceManager.SetEnabled(true);
 #endif
 #endif
 #if OTBR_ENABLE_BACKBONE_ROUTER
@@ -279,7 +303,10 @@ void Application::InitRcpMode(void)
     mRestWebServer->Init();
 #endif
 #if OTBR_ENABLE_DBUS_SERVER
-    mDBusAgent->Init(*mBorderAgent);
+    mDBusAgent->Init();
+#if OTBR_ENABLE_BORDER_AGENT
+    mDBusAgent->SetMeshCopServiceManager(mMeshCopServiceManager);
+#endif
 #endif
 #if OTBR_ENABLE_VENDOR_SERVER
     mVendorServer->Init();
@@ -300,9 +327,6 @@ void Application::DeinitRcpMode(void)
 #if OTBR_ENABLE_DNSSD_DISCOVERY_PROXY
     mDiscoveryProxy->SetEnabled(false);
 #endif
-#if OTBR_ENABLE_BORDER_AGENT
-    mBorderAgent->SetEnabled(false);
-#endif
 #if OTBR_ENABLE_MDNS
     mMdnsStateSubject.Clear();
     mPublisher->Stop();
@@ -315,10 +339,32 @@ void Application::InitNcpMode(void)
     otbr::Host::NcpHost &ncpHost = static_cast<otbr::Host::NcpHost &>(mHost);
     ncpHost.SetMdnsPublisher(mPublisher.get());
     mMdnsStateSubject.AddObserver(ncpHost);
-    mPublisher->Start();
+#endif
+#if OTBR_ENABLE_BORDER_AGENT
+    mHost.BorderAgentSetMeshCoPServiceChangedCallback(
+        [this](bool aIsActive, uint16_t aPort, const uint8_t *aTxtData, uint16_t aLength) {
+            mUdpProxy.HandleBorderAgentStateChange(aIsActive, aPort);
+            mMeshCopServiceManager.HandleBorderAgentStateChange(aIsActive, mUdpProxy.GetHostPort());
+            mMeshCopServiceManager.HandleOtMeshCopTxtValueChange(std::vector<uint8_t>(aTxtData, aTxtData + aLength));
+        });
+    mHost.UdpSetForwardToHostCallback(
+        [this](const uint8_t *aUdpPayload, uint16_t aLength, const otIp6Address &aPeerAddr, uint16_t aPeerPort) {
+            mUdpProxy.SendToPeer(aUdpPayload, aLength, aPeerAddr, aPeerPort);
+        });
+    mMdnsStateSubject.AddObserver(mMeshCopServiceManager);
+// This is for delaying publishing the MeshCoP service until the correct
+// vendor name and OUI etc. are correctly set by MeshCopServiceManager::SetMeshCopServiceValues()
+#if OTBR_STOP_BORDER_AGENT_ON_INIT
+    mMeshCopServiceManager.SetEnabled(false);
+#else
+    mMeshCopServiceManager.SetEnabled(true);
+#endif
 #endif
 #if OTBR_ENABLE_DBUS_SERVER
-    mDBusAgent->Init(*mBorderAgent);
+    mDBusAgent->Init();
+#endif
+#if OTBR_ENABLE_SRP_ADVERTISING_PROXY || OTBR_ENABLE_BORDER_AGENT
+    mPublisher->Start();
 #endif
 }
 

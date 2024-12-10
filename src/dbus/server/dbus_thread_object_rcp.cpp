@@ -52,6 +52,7 @@
 #include "dbus/common/constants.hpp"
 #include "dbus/server/dbus_agent.hpp"
 #include "dbus/server/dbus_thread_object_rcp.hpp"
+#include "host/thread_host.hpp"
 #if OTBR_ENABLE_FEATURE_FLAGS
 #include "proto/feature_flag.pb.h"
 #endif
@@ -104,12 +105,10 @@ namespace DBus {
 DBusThreadObjectRcp::DBusThreadObjectRcp(DBusConnection      &aConnection,
                                          const std::string   &aInterfaceName,
                                          otbr::Host::RcpHost &aHost,
-                                         Mdns::Publisher     *aPublisher,
-                                         otbr::BorderAgent   &aBorderAgent)
+                                         Mdns::Publisher     *aPublisher)
     : DBusObject(&aConnection, OTBR_DBUS_OBJECT_PREFIX + aInterfaceName)
     , mHost(aHost)
     , mPublisher(aPublisher)
-    , mBorderAgent(aBorderAgent)
 {
 }
 
@@ -155,8 +154,10 @@ otbrError DBusThreadObjectRcp::Init(void)
                    std::bind(&DBusThreadObjectRcp::RemoveExternalRouteHandler, this, _1));
     RegisterMethod(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_ATTACH_ALL_NODES_TO_METHOD,
                    std::bind(&DBusThreadObjectRcp::AttachAllNodesToHandler, this, _1));
+#if OTBR_ENABLE_BORDER_AGENT
     RegisterMethod(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_UPDATE_VENDOR_MESHCOP_TXT_METHOD,
                    std::bind(&DBusThreadObjectRcp::UpdateMeshCopTxtHandler, this, _1));
+#endif
     RegisterMethod(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_GET_PROPERTIES_METHOD,
                    std::bind(&DBusThreadObjectRcp::GetPropertiesHandler, this, _1));
     RegisterMethod(OTBR_DBUS_THREAD_INTERFACE, OTBR_DBUS_SET_THREAD_ENABLED_METHOD,
@@ -1256,7 +1257,9 @@ otError DBusThreadObjectRcp::SetFeatureFlagListDataHandler(DBusMessageIter &aIte
     VerifyOrExit(DBusMessageExtractFromVariant(&aIter, data) == OTBR_ERROR_NONE, error = OT_ERROR_INVALID_ARGS);
     VerifyOrExit(featureFlagList.ParseFromString(std::string(data.begin(), data.end())), error = OT_ERROR_INVALID_ARGS);
     // TODO: implement the feature flag handler at every component
-    mBorderAgent.SetEphemeralKeyEnabled(featureFlagList.enable_ephemeralkey());
+#if OTBR_ENABLE_BORDER_AGENT
+    otBorderAgentEphemeralKeySetEnabled(mHost.GetInstance(), featureFlagList.enable_ephemeralkey());
+#endif
     otbrLogInfo("Border Agent Ephemeral Key Feature has been %s by feature flag",
                 (featureFlagList.enable_ephemeralkey() ? "enable" : "disable"));
     VerifyOrExit((error = mHost.ApplyFeatureFlagList(featureFlagList)) == OT_ERROR_NONE);
@@ -1302,10 +1305,10 @@ exit:
     return error;
 }
 
+#if OTBR_ENABLE_BORDER_AGENT
 void DBusThreadObjectRcp::UpdateMeshCopTxtHandler(DBusRequest &aRequest)
 {
-    auto                                        threadHelper = mHost.GetThreadHelper();
-    otError                                     error        = OT_ERROR_NONE;
+    otError                                     error = OT_ERROR_NONE;
     std::map<std::string, std::vector<uint8_t>> update;
     std::vector<TxtEntry>                       updatedTxtEntries;
     auto                                        args = std::tie(updatedTxtEntries);
@@ -1319,11 +1322,12 @@ void DBusThreadObjectRcp::UpdateMeshCopTxtHandler(DBusRequest &aRequest)
     {
         VerifyOrExit(!update.count(reservedKey), error = OT_ERROR_INVALID_ARGS);
     }
-    threadHelper->OnUpdateMeshCopTxt(std::move(update));
+    mMeshCopServicerManager->UpdateVendorMeshCoPTxtEntries(std::move(update));
 
 exit:
     aRequest.ReplyOtResult(error);
 }
+#endif // OTBR_ENABLE_BORDER_AGENT
 
 otError DBusThreadObjectRcp::GetRadioRegionHandler(DBusMessageIter &aIter)
 {
@@ -1813,14 +1817,14 @@ void DBusThreadObjectRcp::LeaveNetworkHandler(DBusRequest &aRequest)
 {
     constexpr int kExitCodeShouldRestart = 7;
 
-    mHost.GetThreadHelper()->DetachGracefully([aRequest, this](otError error) mutable {
-        SuccessOrExit(error);
+    mHost.Leave(true /* aEraseDataset */, [aRequest, this](otError aError, const std::string &aInfo) mutable {
+        OTBR_UNUSED_VARIABLE(aInfo);
+        SuccessOrExit(aError);
         mPublisher->Stop();
-        SuccessOrExit(error = otInstanceErasePersistentInfo(mHost.GetInstance()));
 
     exit:
-        aRequest.ReplyOtResult(error);
-        if (error == OT_ERROR_NONE)
+        aRequest.ReplyOtResult(aError);
+        if (aError == OT_ERROR_NONE)
         {
             Flush();
             exit(kExitCodeShouldRestart);
@@ -2035,8 +2039,10 @@ otError DBusThreadObjectRcp::GetEphemeralKeyEnabled(DBusMessageIter &aIter)
 {
     otError error = OT_ERROR_NONE;
 
-    SuccessOrExit(DBusMessageEncodeToVariant(&aIter, mBorderAgent.GetEphemeralKeyEnabled()),
+    SuccessOrExit(DBusMessageEncodeToVariant(&aIter, otBorderAgentEphemeralKeyGetState(mHost.GetInstance()) !=
+                                                         OT_BORDER_AGENT_STATE_DISABLED),
                   error = OT_ERROR_INVALID_ARGS);
+    SuccessOrExit(DBusMessageEncodeToVariant(&aIter, false), error = OT_ERROR_INVALID_ARGS);
 
 exit:
     return error;
@@ -2048,7 +2054,7 @@ otError DBusThreadObjectRcp::SetEphemeralKeyEnabled(DBusMessageIter &aIter)
     bool    enable;
 
     SuccessOrExit(DBusMessageExtractFromVariant(&aIter, enable), error = OT_ERROR_INVALID_ARGS);
-    mBorderAgent.SetEphemeralKeyEnabled(enable);
+    otBorderAgentEphemeralKeySetEnabled(mHost.GetInstance(), enable);
 
 exit:
     return error;
@@ -2060,8 +2066,6 @@ void DBusThreadObjectRcp::DeactivateEphemeralKeyModeHandler(DBusRequest &aReques
     auto    threadHelper = mHost.GetThreadHelper();
     bool    retain_active_session;
     auto    args = std::tie(retain_active_session);
-
-    VerifyOrExit(mBorderAgent.GetEphemeralKeyEnabled(), error = OT_ERROR_NOT_CAPABLE);
 
     SuccessOrExit(DBusMessageToTuple(*aRequest.GetMessage(), args), error = OT_ERROR_INVALID_ARGS);
 
@@ -2096,12 +2100,10 @@ void DBusThreadObjectRcp::ActivateEphemeralKeyModeHandler(DBusRequest &aRequest)
     auto        args         = std::tie(lifetime);
     std::string ePskc;
 
-    VerifyOrExit(mBorderAgent.GetEphemeralKeyEnabled(), error = OT_ERROR_NOT_CAPABLE);
-
     SuccessOrExit(DBusMessageToTuple(*aRequest.GetMessage(), args), error = OT_ERROR_INVALID_ARGS);
     VerifyOrExit(lifetime <= OT_BORDER_AGENT_MAX_EPHEMERAL_KEY_TIMEOUT, error = OT_ERROR_INVALID_ARGS);
 
-    SuccessOrExit(mBorderAgent.CreateEphemeralKey(ePskc), error = OT_ERROR_INVALID_ARGS);
+    SuccessOrExit(Host::ThreadHost::CreateEphemeralKey(ePskc), error = OT_ERROR_INVALID_ARGS);
     otbrLogInfo("Created Ephemeral Key: %s", ePskc.c_str());
 
     SuccessOrExit(error = otBorderAgentEphemeralKeyStart(threadHelper->GetInstance(), ePskc.c_str(), lifetime,

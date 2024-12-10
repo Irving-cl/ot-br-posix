@@ -253,10 +253,43 @@ void NcpHost::AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aC
     OT_UNUSED_VARIABLE(aCallback);
 }
 
+void NcpHost::NotifyDnssdStateChange(otPlatDnssdState aState)
+{
+    OTBR_UNUSED_VARIABLE(aState);
+}
+
+void NcpHost::BorderAgentSetEphemeralKeyFeatureEnabled(bool aEnabled)
+{
+    (void)aEnabled;
+}
+
+void NcpHost::BorderAgentAddEphemeralKeyCallback(EphemeralKeyStateChangedCallback aCallback)
+{
+    (void)aCallback;
+}
+
+void NcpHost::BorderAgentSetMeshCoPServiceChangedCallback(BorderAgentMeshCoPServiceChangedCallback aCallback)
+{
+    mNcpSpinel.BorderAgentSetMeshCoPServiceChangedCallback(aCallback);
+}
+
+otbrError NcpHost::UdpForward(const uint8_t      *aUdpPayload,
+                              uint16_t            aLength,
+                              const otIp6Address &aRemoteAddr,
+                              uint16_t            aRemotePort,
+                              uint16_t            aLocalPort)
+{
+    return mNcpSpinel.UdpForward(aUdpPayload, aLength, aRemoteAddr, aRemotePort, aLocalPort);
+}
+
+void NcpHost::UdpSetForwardToHostCallback(UdpForwardToHostCallback aCallback)
+{
+    mNcpSpinel.UdpSetForwardSendCallback(aCallback);
+}
+
 void NcpHost::Process(const MainloopContext &aMainloop)
 {
     mSpinelDriver.Process(&aMainloop);
-
     mNetif.Process(&aMainloop);
 }
 

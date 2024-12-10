@@ -257,14 +257,15 @@ void DnssdPlatform::RegisterService(const Service &aService, RequestId aRequestI
 {
     Mdns::Publisher::SubTypeList subTypeList;
     Mdns::Publisher::TxtData     txtData(aService.mTxtData, aService.mTxtData + aService.mTxtDataLength);
+    uint16_t                     port = aService.mPort;
 
     for (uint16_t index = 0; index < aService.mSubTypeLabelsLength; index++)
     {
         subTypeList.push_back(aService.mSubTypeLabels[index]);
     }
 
-    mPublisher.PublishService(aService.mHostName, aService.mServiceInstance, aService.mServiceType, subTypeList,
-                              aService.mPort, txtData, MakePublisherCallback(aRequestId, aCallback));
+    mPublisher.PublishService(aService.mHostName, aService.mServiceInstance, aService.mServiceType, subTypeList, port,
+                              txtData, MakePublisherCallback(aRequestId, aCallback));
 }
 
 void DnssdPlatform::UnregisterService(const Service &aService, RequestId aRequestId, RegisterCallback aCallback)

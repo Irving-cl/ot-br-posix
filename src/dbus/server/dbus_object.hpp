@@ -47,6 +47,7 @@
 
 #include <dbus/dbus.h>
 
+#include "border_agent/meshcop_service_manager.hpp"
 #include "common/code_utils.hpp"
 #include "common/types.hpp"
 #include "dbus/common/constants.hpp"
@@ -211,6 +212,10 @@ public:
         return error;
     }
 
+#if OTBR_ENABLE_BORDER_AGENT
+    void SetMeshCopServiceManager(BorderAgent::MeshCopServiceManager &aMeshCopServiceManager);
+#endif
+
     /**
      * The destructor of a d-bus object.
      */
@@ -242,6 +247,11 @@ private:
     std::unordered_map<std::string, PropertyHandlerType> mSetPropertyHandlers;
     DBusConnection                                      *mConnection;
     std::string                                          mObjectPath;
+
+protected:
+#if OTBR_ENABLE_BORDER_AGENT
+    BorderAgent::MeshCopServiceManager *mMeshCopServicerManager;
+#endif
 };
 
 } // namespace DBus

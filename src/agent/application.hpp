@@ -42,15 +42,22 @@
 #include <vector>
 
 #if OTBR_ENABLE_BORDER_AGENT
-#include "border_agent/border_agent.hpp"
+#include "border_agent/meshcop_service_manager.hpp"
 #endif
 #include "host/ncp_host.hpp"
+#include "host/posix/dnssd.hpp"
 #include "host/rcp_host.hpp"
 #if OTBR_ENABLE_BACKBONE_ROUTER
 #include "backbone_router/backbone_agent.hpp"
 #endif
 #if OTBR_ENABLE_REST_SERVER
 #include "rest/rest_web_server.hpp"
+#endif
+#if OTBR_ENABLE_SRP_ADVERTISING_PROXY
+#include "sdp_proxy/advertising_proxy.hpp"
+#endif
+#if OTBR_ENABLE_DNSSD_DISCOVERY_PROXY
+#include "sdp_proxy/discovery_proxy.hpp"
 #endif
 #if OTBR_ENABLE_DBUS_SERVER
 #include "dbus/server/dbus_agent.hpp"
@@ -63,6 +70,9 @@
 #endif
 #if OTBR_ENABLE_DNSSD_PLAT
 #include "host/posix/dnssd.hpp"
+#endif
+#if OTBR_ENABLE_TREL
+#include "trel_dnssd/trel_dnssd.hpp"
 #endif
 #include "utils/infra_link_selector.hpp"
 
@@ -161,9 +171,9 @@ public:
      *
      * @returns The border agent.
      */
-    BorderAgent &GetBorderAgent(void)
+    BorderAgent::MeshCopServiceManager &GetMeshCopServiceManager(void)
     {
-        return *mBorderAgent;
+        return mMeshCopServiceManager;
     }
 #endif
 
@@ -275,8 +285,10 @@ private:
     DnssdPlatform mDnssdPlatform;
 #endif
 #if OTBR_ENABLE_BORDER_AGENT
-    std::unique_ptr<BorderAgent> mBorderAgent;
+    BorderAgent::UdpProxy              mUdpProxy;
+    BorderAgent::MeshCopServiceManager mMeshCopServiceManager;
 #endif
+
 #if OTBR_ENABLE_BACKBONE_ROUTER
     std::unique_ptr<BackboneRouter::BackboneAgent> mBackboneAgent;
 #endif
@@ -296,7 +308,7 @@ private:
     std::unique_ptr<rest::RestWebServer> mRestWebServer;
 #endif
 #if OTBR_ENABLE_DBUS_SERVER
-    std::unique_ptr<DBus::DBusAgent> mDBusAgent;
+    std::unique_ptr<otbr::DBus::DBusAgent> mDBusAgent;
 #endif
 #if OTBR_ENABLE_VENDOR_SERVER
     std::shared_ptr<vendor::VendorServer> mVendorServer;

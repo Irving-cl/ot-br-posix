@@ -46,6 +46,9 @@ namespace DBus {
 DBusObject::DBusObject(DBusConnection *aConnection, const std::string &aObjectPath)
     : mConnection(aConnection)
     , mObjectPath(aObjectPath)
+#if OTBR_ENABLE_BORDER_AGENT
+    , mMeshCopServicerManager(nullptr)
+#endif
 {
 }
 
@@ -83,6 +86,11 @@ otbrError DBusObject::Initialize(bool aIsAsyncPropertyHandler)
 
 exit:
     return error;
+}
+
+void DBusObject::SetMeshCopServiceManager(BorderAgent::MeshCopServiceManager &aMeshCopServiceManager)
+{
+    mMeshCopServicerManager = &aMeshCopServiceManager;
 }
 
 void DBusObject::RegisterMethod(const std::string       &aInterfaceName,

@@ -37,6 +37,7 @@
 #include "lib/spinel/coprocessor_type.h"
 #include "lib/spinel/spinel_driver.hpp"
 
+#include "border_agent/udp_proxy.hpp"
 #include "common/mainloop.hpp"
 #include "host/ncp_spinel.hpp"
 #include "host/thread_host.hpp"
@@ -107,8 +108,14 @@ public:
     void SetChannelMaxPowers(const std::vector<ChannelMaxPower> &aChannelMaxPowers,
                              const AsyncResultReceiver          &aReceiver) override;
 #endif
-    void            AddThreadStateChangedCallback(ThreadStateChangedCallback aCallback) override;
-    void            AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) override;
+    void AddThreadStateChangedCallback(ThreadStateChangedCallback aCallback) override;
+    void AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) override;
+    void NotifyDnssdStateChange(otPlatDnssdState aState) override;
+    void BorderAgentSetEphemeralKeyFeatureEnabled(bool aEnabled) override;
+    void BorderAgentAddEphemeralKeyCallback(EphemeralKeyStateChangedCallback aCallback) override;
+    void BorderAgentSetMeshCoPServiceChangedCallback(BorderAgentMeshCoPServiceChangedCallback aCallback) override;
+    void UdpSetForwardToHostCallback(UdpForwardToHostCallback aCallback) override;
+
     CoprocessorType GetCoprocessorType(void) override
     {
         return OT_COPROCESSOR_NCP;
@@ -130,6 +137,11 @@ public:
 #endif
 
 private:
+    otbrError UdpForward(const uint8_t      *aUdpPayload,
+                         uint16_t            aLength,
+                         const otIp6Address &aRemoteAddr,
+                         uint16_t            aRemotePort,
+                         uint16_t            aLocalPort) override;
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY
     void HandleMdnsState(Mdns::Publisher::State aState) override;
 #endif

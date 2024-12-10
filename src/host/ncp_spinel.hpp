@@ -39,6 +39,7 @@
 
 #include <vector>
 
+#include <openthread/border_agent.h>
 #include <openthread/dataset.h>
 #include <openthread/error.h>
 #include <openthread/link.h>
@@ -50,6 +51,7 @@
 #include "lib/spinel/spinel_driver.hpp"
 #include "lib/spinel/spinel_encoder.hpp"
 
+#include "border_agent/udp_proxy.hpp"
 #include "common/task_runner.hpp"
 #include "common/types.hpp"
 #include "host/async_task.hpp"
@@ -97,6 +99,8 @@ public:
     using NetifStateChangedCallback        = std::function<void(bool)>;
     using Ip6ReceiveCallback               = std::function<void(const uint8_t *, uint16_t)>;
     using InfraIfSendIcmp6NdCallback = std::function<void(uint32_t, const otIp6Address &, const uint8_t *, uint16_t)>;
+    using BorderAgentMeshCoPServiceChangedCallback = std::function<void(bool, uint16_t, const uint8_t *, uint16_t)>;
+    using UdpForwardSendCallback = std::function<void(const uint8_t *, uint16_t, const otIp6Address &, uint16_t)>;
 
     /**
      * Constructor.
@@ -282,6 +286,25 @@ public:
     }
 #endif // OTBR_ENABLE_SRP_ADVERTISING_PROXY
 
+    void BorderAgentSetMeshCoPServiceChangedCallback(const BorderAgentMeshCoPServiceChangedCallback &aCallback)
+    {
+        mBorderAgentMeshCoPServiceChangedCallback = aCallback;
+
+        SuccessOrDie(GetProperty(SPINEL_PROP_BORDER_AGENT_MESHCOP_SERVICE_STATE),
+                     "Failed to get MeshCoP Service State");
+    }
+
+    otbrError UdpForward(const uint8_t      *aUdpPayload,
+                         uint16_t            aLength,
+                         const otIp6Address &aRemoteAddr,
+                         uint16_t            aRemotePort,
+                         uint16_t            aLocalPort);
+
+    void UdpSetForwardSendCallback(UdpForwardSendCallback aCallback)
+    {
+        mUdpForwardSendCallback = aCallback;
+    }
+
 private:
     using FailureHandler = std::function<void(otError)>;
 
@@ -323,6 +346,10 @@ private:
     void      HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
     void      HandleValueInserted(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
     void      HandleValueRemoved(spinel_prop_key_t aKey, const uint8_t *aBuffer, uint16_t aLength);
+    otbrError HandleResponseForPropGet(spinel_tid_t      aTid,
+                                       spinel_prop_key_t aKey,
+                                       const uint8_t    *aData,
+                                       uint16_t          aLength);
     otbrError HandleResponseForPropSet(spinel_tid_t      aTid,
                                        spinel_prop_key_t aKey,
                                        const uint8_t    *aData,
@@ -345,6 +372,7 @@ private:
 
     using EncodingFunc = std::function<otError(ot::Spinel::Encoder &aEncoder)>;
     otError SendCommand(spinel_command_t aCmd, spinel_prop_key_t aKey, const EncodingFunc &aEncodingFunc);
+    otError GetProperty(spinel_prop_key_t aKey);
     otError SetProperty(spinel_prop_key_t aKey, const EncodingFunc &aEncodingFunc);
     otError InsertProperty(spinel_prop_key_t aKey, const EncodingFunc &aEncodingFunc);
     otError RemoveProperty(spinel_prop_key_t aKey, const EncodingFunc &aEncodingFunc);
@@ -361,6 +389,14 @@ private:
                                 const otIp6Address *&aAddr,
                                 const uint8_t      *&aData,
                                 uint16_t            &aDataLen);
+    otError ParseUdpForwardStream(const uint8_t       *aBuf,
+                                  uint16_t             aLen,
+                                  const uint8_t      *&aUdpPayload,
+                                  uint16_t            &aUdpPayloadLen,
+                                  const otIp6Address *&aPeerAddr,
+                                  uint16_t            &aPeerPort,
+                                  uint16_t            &aLocalPort);
+
     otError SendDnssdResult(otPlatDnssdRequestId aRequestId, const std::vector<uint8_t> &aCallbackData, otError aError);
 
     otbrError SetInfraIf(uint32_t                       aInfraIfIndex,
@@ -399,11 +435,13 @@ private:
     AsyncTaskPtr mThreadDetachGracefullyTask;
     AsyncTaskPtr mThreadErasePersistentInfoTask;
 
-    Ip6AddressTableCallback          mIp6AddressTableCallback;
-    Ip6MulticastAddressTableCallback mIp6MulticastAddressTableCallback;
-    Ip6ReceiveCallback               mIp6ReceiveCallback;
-    NetifStateChangedCallback        mNetifStateChangedCallback;
-    InfraIfSendIcmp6NdCallback       mInfraIfIcmp6NdCallback;
+    Ip6AddressTableCallback                  mIp6AddressTableCallback;
+    Ip6MulticastAddressTableCallback         mIp6MulticastAddressTableCallback;
+    Ip6ReceiveCallback                       mIp6ReceiveCallback;
+    NetifStateChangedCallback                mNetifStateChangedCallback;
+    InfraIfSendIcmp6NdCallback               mInfraIfIcmp6NdCallback;
+    BorderAgentMeshCoPServiceChangedCallback mBorderAgentMeshCoPServiceChangedCallback;
+    UdpForwardSendCallback                   mUdpForwardSendCallback;
 };
 
 } // namespace Host
