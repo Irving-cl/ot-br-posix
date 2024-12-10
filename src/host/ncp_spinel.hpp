@@ -39,6 +39,7 @@
 
 #include <vector>
 
+#include <openthread/border_agent.h>
 #include <openthread/dataset.h>
 #include <openthread/error.h>
 #include <openthread/link.h>
@@ -53,6 +54,7 @@
 #include "common/task_runner.hpp"
 #include "common/types.hpp"
 #include "host/async_task.hpp"
+#include "host/ncp_border_agent.hpp"
 #include "host/posix/infra_if.hpp"
 #include "host/posix/netif.hpp"
 #include "mdns/mdns.hpp"
@@ -89,7 +91,7 @@ public:
 /**
  * The class provides methods for controlling the Thread stack on the network co-processor (NCP).
  */
-class NcpSpinel : public Netif::Dependencies, public InfraIf::Dependencies
+class NcpSpinel : public Netif::Dependencies, public InfraIf::Dependencies, public NcpBorderAgent::Dependencies
 {
 public:
     using Ip6AddressTableCallback          = std::function<void(const std::vector<Ip6AddressInfo> &)>;
@@ -97,6 +99,8 @@ public:
     using NetifStateChangedCallback        = std::function<void(bool)>;
     using Ip6ReceiveCallback               = std::function<void(const uint8_t *, uint16_t)>;
     using InfraIfSendIcmp6NdCallback = std::function<void(uint32_t, const otIp6Address &, const uint8_t *, uint16_t)>;
+    using BorderAgentUdpPortChangedCallback = std::function<void(uint16_t)>;
+    using UdpForwardSendCallback = std::function<void(const uint8_t *, uint16_t, const otIp6Address &, uint16_t)>;
 
     /**
      * Constructor.
@@ -282,6 +286,22 @@ public:
     }
 #endif // OTBR_ENABLE_SRP_ADVERTISING_PROXY
 
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+    void BorderAgentMeshCopSetEnabled(bool aEnabled);
+
+    void BorderAgentMeshCopSetValues(const char                        *aBaseServiceInstanceName,
+                                     const char                        *aProductName,
+                                     const otBorderAgentVendorTxtEntry *aVendorTxtEntries,
+                                     uint8_t                            aLength);
+
+    void BorderAgentSetUdpPortChangedCallback(BorderAgentUdpPortChangedCallback aCallback);
+
+    void BorderAgentSetUdpForwardSendCallback(const UdpForwardSendCallback &aCallback)
+    {
+        mUdpForwardSendCallback = aCallback;
+    }
+#endif
+
 private:
     using FailureHandler = std::function<void(otError)>;
 
@@ -361,6 +381,15 @@ private:
                                 const otIp6Address *&aAddr,
                                 const uint8_t      *&aData,
                                 uint16_t            &aDataLen);
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+    otError ParseUdpForwardStream(const uint8_t       *aBuf,
+                                  uint16_t             aLen,
+                                  const uint8_t      *&aUdpPayload,
+                                  uint16_t            &aUdpPayloadLen,
+                                  const otIp6Address *&aPeerAddr,
+                                  uint16_t            &aPeerPort,
+                                  uint16_t            &aLocalPort);
+#endif
     otError SendDnssdResult(otPlatDnssdRequestId aRequestId, const std::vector<uint8_t> &aCallbackData, otError aError);
 
     otbrError SetInfraIf(uint32_t                       aInfraIfIndex,
@@ -370,6 +399,11 @@ private:
                             const Ip6Address &aIp6Address,
                             const uint8_t    *aData,
                             uint16_t          aDataLen) override;
+    otbrError UdpForward(const uint8_t      *aUdpPayload,
+                         uint16_t            aLength,
+                         const otIp6Address &aRemoteAddr,
+                         uint16_t            aRemotePort,
+                         uint16_t            aLocalPort) override;
 
     ot::Spinel::SpinelDriver *mSpinelDriver;
     uint16_t                  mCmdTidsInUse; ///< Used transaction ids.
@@ -399,11 +433,15 @@ private:
     AsyncTaskPtr mThreadDetachGracefullyTask;
     AsyncTaskPtr mThreadErasePersistentInfoTask;
 
-    Ip6AddressTableCallback          mIp6AddressTableCallback;
-    Ip6MulticastAddressTableCallback mIp6MulticastAddressTableCallback;
-    Ip6ReceiveCallback               mIp6ReceiveCallback;
-    NetifStateChangedCallback        mNetifStateChangedCallback;
-    InfraIfSendIcmp6NdCallback       mInfraIfIcmp6NdCallback;
+    Ip6AddressTableCallback           mIp6AddressTableCallback;
+    Ip6MulticastAddressTableCallback  mIp6MulticastAddressTableCallback;
+    Ip6ReceiveCallback                mIp6ReceiveCallback;
+    NetifStateChangedCallback         mNetifStateChangedCallback;
+    InfraIfSendIcmp6NdCallback        mInfraIfIcmp6NdCallback;
+    BorderAgentUdpPortChangedCallback mBorderAgentUdpPortChangedCallback;
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+    UdpForwardSendCallback mUdpForwardSendCallback;
+#endif
 };
 
 } // namespace Host

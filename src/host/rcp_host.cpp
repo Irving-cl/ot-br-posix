@@ -36,6 +36,7 @@
 #include <string.h>
 
 #include <openthread/backbone_router_ftd.h>
+#include <openthread/border_agent.h>
 #include <openthread/border_routing.h>
 #include <openthread/dataset.h>
 #include <openthread/dnssd_server.h>
@@ -47,6 +48,7 @@
 #include <openthread/thread.h>
 #include <openthread/thread_ftd.h>
 #include <openthread/trel.h>
+#include <openthread/platform/dnssd.h>
 #include <openthread/platform/logging.h>
 #include <openthread/platform/misc.h>
 #include <openthread/platform/radio.h>
@@ -89,6 +91,21 @@ uint32_t OtNetworkProperties::GetPartitionId(void) const
     return otThreadGetPartitionId(mInstance);
 }
 
+const otExtendedPanId *OtNetworkProperties::GetExtendedPanId(void) const
+{
+    return otThreadGetExtendedPanId(mInstance);
+}
+
+const otExtAddress *OtNetworkProperties::GetExtendedAddress(void) const
+{
+    return otLinkGetExtendedAddress(mInstance);
+}
+
+const char *OtNetworkProperties::GetNetworkName(void) const
+{
+    return otThreadGetNetworkName(mInstance);
+}
+
 void OtNetworkProperties::GetDatasetActiveTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const
 {
     otError error = otDatasetGetActiveTlvs(mInstance, &aDatasetTlvs);
@@ -98,6 +115,11 @@ void OtNetworkProperties::GetDatasetActiveTlvs(otOperationalDatasetTlvs &aDatase
         aDatasetTlvs.mLength = 0;
         memset(aDatasetTlvs.mTlvs, 0, sizeof(aDatasetTlvs.mTlvs));
     }
+}
+
+otError OtNetworkProperties::GetDatasetActive(otOperationalDataset &aDataset) const
+{
+    return otDatasetGetActive(mInstance, &aDataset);
 }
 
 void OtNetworkProperties::GetDatasetPendingTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const
@@ -274,6 +296,8 @@ void RcpHost::Init(void)
 #endif
 #endif // OTBR_ENABLE_FEATURE_FLAGS
 
+    otBorderAgentSetEphemeralKeyCallback(mInstance, RcpHost::HandleEpskcStateChanged, this);
+
     mThreadHelper = MakeUnique<otbr::agent::ThreadHelper>(mInstance, this);
 
     OtNetworkProperties::SetInstance(mInstance);
@@ -335,6 +359,7 @@ void RcpHost::Deinit(void)
     mSetThreadEnabledReceiver  = nullptr;
     mScheduleMigrationReceiver = nullptr;
     mDetachGracefullyCallbacks.clear();
+    mEphemeralKeyChangedCallback = nullptr;
 }
 
 void RcpHost::HandleStateChanged(otChangedFlags aFlags)
@@ -419,6 +444,27 @@ void RcpHost::Reset(void)
     }
     mEnableAutoAttach = true;
 }
+
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+void RcpHost::BorderAgentSetEnabled(bool aEnabled)
+{
+    otBorderAgentSetServicePublisherEnabled(mInstance, aEnabled);
+}
+
+void RcpHost::BorderAgentSetMeshCopServiceValues(const char                        *aServiceInstanceName,
+                                                 const char                        *aProductName,
+                                                 const otBorderAgentVendorTxtEntry *aVendorTxtEntries,
+                                                 uint8_t                            aLength)
+{
+    assert(otBorderAgentSetMeshCopServiceValues(mInstance, aServiceInstanceName, aProductName, aVendorTxtEntries,
+                                                aLength) == OT_ERROR_NONE);
+}
+
+void RcpHost::BorderAgentSetEphemeralKeyChangedCallback(EphemeralKeyChangedCallback aCallback)
+{
+    mEphemeralKeyChangedCallback = aCallback;
+}
+#endif
 
 const char *RcpHost::GetThreadVersion(void)
 {
@@ -780,6 +826,23 @@ void RcpHost::UpdateThreadEnabledState(ThreadEnabledState aState)
     {
         callback(mThreadEnabledState);
     }
+}
+
+void RcpHost::HandleEpskcStateChanged(void *aContext)
+{
+    RcpHost *rcpHost = static_cast<RcpHost *>(aContext);
+
+    if (rcpHost->mEphemeralKeyChangedCallback)
+    {
+        rcpHost->mEphemeralKeyChangedCallback();
+    }
+}
+
+void RcpHost::NotifyDnssdStateChange(otPlatDnssdState aState)
+{
+    OTBR_UNUSED_VARIABLE(aState);
+
+    otPlatDnssdStateHandleStateChange(mInstance);
 }
 
 /*

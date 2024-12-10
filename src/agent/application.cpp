@@ -62,8 +62,9 @@ Application::Application(Host::ThreadHost  &aHost,
 #if OTBR_ENABLE_MDNS
     , mPublisher(
           Mdns::Publisher::Create([this](Mdns::Publisher::State aState) { mMdnsStateSubject.UpdateState(aState); }))
+    , mDnssdPlatform(*mPublisher)
 #endif
-#if OTBR_ENABLE_DBUS_SERVER && OTBR_ENABLE_BORDER_AGENT
+#if OTBR_ENABLE_DBUS_SERVER
     , mDBusAgent(MakeUnique<DBus::DBusAgent>(mHost, *mPublisher))
 #endif
 {
@@ -76,6 +77,13 @@ Application::Application(Host::ThreadHost  &aHost,
 void Application::Init(void)
 {
     mHost.Init();
+
+#if OTBR_ENABLE_MDNS
+    mDnssdPlatform.SetDnssdStateChangedCallback(
+        [this](otPlatDnssdState aState) { mHost.NotifyDnssdStateChange(aState); });
+    mDnssdPlatform.Start();
+    mMdnsStateSubject.AddObserver(mDnssdPlatform);
+#endif
 
     switch (mHost.GetCoprocessorType())
     {
@@ -107,6 +115,10 @@ void Application::Deinit(void)
         DieNow("Unknown coprocessor type!");
         break;
     }
+
+#if OTBR_ENABLE_MDNS
+    mDnssdPlatform.Stop();
+#endif
 
     mHost.Deinit();
 }
@@ -245,6 +257,8 @@ void Application::InitRcpMode(void)
 #else
     mBorderAgent->SetEnabled(true);
 #endif
+#elif OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+    InitBorderAgentMeshCopPublisher();
 #endif
 #if OTBR_ENABLE_BACKBONE_ROUTER
     mBackboneAgent->Init();
@@ -262,7 +276,10 @@ void Application::InitRcpMode(void)
     mRestWebServer->Init();
 #endif
 #if OTBR_ENABLE_DBUS_SERVER
-    mDBusAgent->Init(*mBorderAgent);
+    mDBusAgent->Init();
+#if OTBR_ENABLE_BORDER_AGENT
+    mDBusAgent->SetBorderAgent(*mBorderAgent);
+#endif
 #endif
 #if OTBR_ENABLE_VENDOR_SERVER
     mVendorServer->Init();
@@ -276,9 +293,6 @@ void Application::DeinitRcpMode(void)
 #endif
 #if OTBR_ENABLE_DNSSD_DISCOVERY_PROXY
     mDiscoveryProxy->SetEnabled(false);
-#endif
-#if OTBR_ENABLE_BORDER_AGENT
-    mBorderAgent->SetEnabled(false);
 #endif
 #if OTBR_ENABLE_MDNS
     mMdnsStateSubject.Clear();
@@ -294,8 +308,11 @@ void Application::InitNcpMode(void)
     mMdnsStateSubject.AddObserver(ncpHost);
     mPublisher->Start();
 #endif
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+    InitBorderAgentMeshCopPublisher();
+#endif
 #if OTBR_ENABLE_DBUS_SERVER
-    mDBusAgent->Init(*mBorderAgent);
+    mDBusAgent->Init();
 #endif
 }
 
@@ -305,5 +322,24 @@ void Application::DeinitNcpMode(void)
     mPublisher->Stop();
 #endif
 }
+
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+void Application::InitBorderAgentMeshCopPublisher(void)
+{
+    // This is for delaying publishing the MeshCoP service until the correct
+    // vendor name and OUI etc. are correctly set by ThreadHost::SetMeshCopServiceValues()
+#if OTBR_STOP_BORDER_AGENT_ON_INIT
+    mHost.BorderAgentSetEnabled(false);
+#else
+    const char                        kVendorName[]       = OTBR_VENDOR_NAME;
+    const otBorderAgentVendorTxtEntry kVendorTxtEntries[] = {
+        {"vn", reinterpret_cast<const uint8_t *>(kVendorName), sizeof(kVendorName)}};
+    mHost.BorderAgentSetMeshCopServiceValues(OTBR_MESHCOP_SERVICE_INSTANCE_NAME, OTBR_PRODUCT_NAME, kVendorTxtEntries,
+                                             sizeof(kVendorTxtEntries) / sizeof(otBorderAgentVendorTxtEntry));
+    mHost.BorderAgentSetEnabled(true);
+#endif
+}
+
+#endif
 
 } // namespace otbr

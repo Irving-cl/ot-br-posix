@@ -37,9 +37,12 @@
 #include <functional>
 #include <memory>
 
+#include <openthread/border_agent.h>
 #include <openthread/dataset.h>
 #include <openthread/error.h>
 #include <openthread/thread.h>
+
+#include <openthread/platform/dnssd.h>
 
 #include "lib/spinel/coprocessor_type.h"
 
@@ -79,11 +82,42 @@ public:
     virtual uint32_t GetPartitionId(void) const = 0;
 
     /**
+     * Returns the extended Pan ID.
+     *
+     * @returns The extended Pan ID.
+     */
+    virtual const otExtendedPanId *GetExtendedPanId(void) const = 0;
+
+    /**
+     * Returns the extended address.
+     *
+     * @returns The extended address.
+     */
+    virtual const otExtAddress *GetExtendedAddress(void) const = 0;
+
+    /**
+     * Returns the network name.
+     *
+     * @returns The network name.
+     */
+    virtual const char *GetNetworkName(void) const = 0;
+
+    /**
      * Returns the active operational dataset tlvs.
      *
      * @param[out] aDatasetTlvs  A reference to where the Active Operational Dataset will be placed.
      */
     virtual void GetDatasetActiveTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const = 0;
+
+    /**
+     * Returns the active operational dataset.
+     *
+     * @param[out] aDataset  A reference to where the Active Operational Dataset will be placed.
+     *
+     * @retval OT_ERROR_NONE        Successfully retrieved the Active Operational Dataset.
+     * @retval OT_ERROR_NOT_FOUND   No corresponding value in the setting store.
+     */
+    virtual otError GetDatasetActive(otOperationalDataset &aDataset) const = 0;
 
     /**
      * Returns the pending operational dataset tlvs.
@@ -118,9 +152,10 @@ public:
     using AsyncResultReceiver = std::function<void(otError, const std::string &)>;
     using ChannelMasksReceiver =
         std::function<void(uint32_t /*aSupportedChannelMask*/, uint32_t /*aPreferredChannelMask*/)>;
-    using DeviceRoleHandler          = std::function<void(otError, otDeviceRole)>;
-    using ThreadStateChangedCallback = std::function<void(otChangedFlags aFlags)>;
-    using ThreadEnabledStateCallback = std::function<void(ThreadEnabledState aState)>;
+    using DeviceRoleHandler           = std::function<void(otError, otDeviceRole)>;
+    using ThreadStateChangedCallback  = std::function<void(otChangedFlags aFlags)>;
+    using ThreadEnabledStateCallback  = std::function<void(ThreadEnabledState aState)>;
+    using EphemeralKeyChangedCallback = std::function<void(void)>;
 
     struct ChannelMaxPower
     {
@@ -250,6 +285,31 @@ public:
     virtual void AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) = 0;
 
     /**
+     *
+     */
+    virtual void NotifyDnssdStateChange(otPlatDnssdState aState) = 0;
+
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+    /**
+     *
+     */
+    virtual void BorderAgentSetEnabled(bool aEnabled) = 0;
+
+    /**
+     *
+     */
+    virtual void BorderAgentSetMeshCopServiceValues(const char                        *aServiceInstanceName,
+                                                    const char                        *aProductName,
+                                                    const otBorderAgentVendorTxtEntry *aVendorTxtEntries,
+                                                    uint8_t                            aLength) = 0;
+
+    /**
+     *
+     */
+    virtual void BorderAgentSetEphemeralKeyChangedCallback(EphemeralKeyChangedCallback aCallback) = 0;
+#endif
+
+    /**
      * Returns the co-processor type.
      */
     virtual CoprocessorType GetCoprocessorType(void) = 0;
@@ -280,6 +340,17 @@ public:
      * The destructor.
      */
     virtual ~ThreadHost(void) = default;
+
+    /**
+     * This method creates ephemeral key in the Border Agent.
+     *
+     * @param[out] aEphemeralKey  The ephemeral key digit string of length 9 with first 8 digits randomly
+     *                            generated, and the last 9th digit as verhoeff checksum.
+     *
+     * @returns OTBR_ERROR_INVALID_ARGS  If Verhoeff checksum calculate returns error.
+     * @returns OTBR_ERROR_NONE          If successfully generate the ePSKc.
+     */
+    static otbrError CreateEphemeralKey(std::string &aEphemeralKey);
 };
 
 } // namespace Host

@@ -45,12 +45,19 @@
 #include "border_agent/border_agent.hpp"
 #endif
 #include "host/ncp_host.hpp"
+#include "host/posix/dnssd.hpp"
 #include "host/rcp_host.hpp"
 #if OTBR_ENABLE_BACKBONE_ROUTER
 #include "backbone_router/backbone_agent.hpp"
 #endif
 #if OTBR_ENABLE_REST_SERVER
 #include "rest/rest_web_server.hpp"
+#endif
+#if OTBR_ENABLE_SRP_ADVERTISING_PROXY
+#include "sdp_proxy/advertising_proxy.hpp"
+#endif
+#if OTBR_ENABLE_DNSSD_DISCOVERY_PROXY
+#include "sdp_proxy/discovery_proxy.hpp"
 #endif
 #if OTBR_ENABLE_DBUS_SERVER
 #include "dbus/server/dbus_agent.hpp"
@@ -60,6 +67,9 @@
 #endif
 #if OTBR_ENABLE_VENDOR_SERVER
 #include "agent/vendor.hpp"
+#endif
+#if OTBR_ENABLE_TREL
+#include "trel_dnssd/trel_dnssd.hpp"
 #endif
 #include "utils/infra_link_selector.hpp"
 
@@ -261,12 +271,17 @@ private:
     void InitNcpMode(void);
     void DeinitNcpMode(void);
 
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+    void InitBorderAgentMeshCopPublisher(void);
+#endif
+
     std::string       mInterfaceName;
     const char       *mBackboneInterfaceName;
     Host::ThreadHost &mHost;
 #if OTBR_ENABLE_MDNS
     Mdns::StateSubject               mMdnsStateSubject;
     std::unique_ptr<Mdns::Publisher> mPublisher;
+    DnssdPlatform                    mDnssdPlatform;
 #endif
 #if OTBR_ENABLE_BORDER_AGENT
     std::unique_ptr<BorderAgent> mBorderAgent;

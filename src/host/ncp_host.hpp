@@ -38,6 +38,7 @@
 #include "lib/spinel/spinel_driver.hpp"
 
 #include "common/mainloop.hpp"
+#include "host/ncp_border_agent.hpp"
 #include "host/ncp_spinel.hpp"
 #include "host/thread_host.hpp"
 #include "posix/netif.hpp"
@@ -57,11 +58,15 @@ public:
     explicit NcpNetworkProperties(void);
 
     // NetworkProperties methods
-    otDeviceRole GetDeviceRole(void) const override;
-    bool         Ip6IsEnabled(void) const override;
-    uint32_t     GetPartitionId(void) const override;
-    void         GetDatasetActiveTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const override;
-    void         GetDatasetPendingTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const override;
+    otDeviceRole           GetDeviceRole(void) const override;
+    bool                   Ip6IsEnabled(void) const override;
+    uint32_t               GetPartitionId(void) const override;
+    const otExtendedPanId *GetExtendedPanId(void) const override;
+    const otExtAddress    *GetExtendedAddress(void) const override;
+    const char            *GetNetworkName(void) const override;
+    void                   GetDatasetActiveTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const override;
+    otError                GetDatasetActive(otOperationalDataset &aDataset) const override;
+    void                   GetDatasetPendingTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const override;
 
 private:
     // PropsObserver methods
@@ -107,8 +112,17 @@ public:
     void SetChannelMaxPowers(const std::vector<ChannelMaxPower> &aChannelMaxPowers,
                              const AsyncResultReceiver          &aReceiver) override;
 #endif
-    void            AddThreadStateChangedCallback(ThreadStateChangedCallback aCallback) override;
-    void            AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) override;
+    void AddThreadStateChangedCallback(ThreadStateChangedCallback aCallback) override;
+    void AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) override;
+    void NotifyDnssdStateChange(otPlatDnssdState aState) override;
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+    void BorderAgentSetEnabled(bool aEnabled) override;
+    void BorderAgentSetMeshCopServiceValues(const char                        *aServiceInstanceName,
+                                            const char                        *aProductName,
+                                            const otBorderAgentVendorTxtEntry *aVendorTxtEntries,
+                                            uint8_t                            aLength) override;
+    void BorderAgentSetEphemeralKeyChangedCallback(EphemeralKeyChangedCallback aCallback) override;
+#endif
     CoprocessorType GetCoprocessorType(void) override
     {
         return OT_COPROCESSOR_NCP;
@@ -140,6 +154,7 @@ private:
     TaskRunner                mTaskRunner;
     Netif                     mNetif;
     InfraIf                   mInfraIf;
+    NcpBorderAgent            mBorderAgent;
 };
 
 } // namespace Host

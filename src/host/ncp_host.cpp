@@ -73,6 +73,24 @@ uint32_t NcpNetworkProperties::GetPartitionId(void) const
     return 0;
 }
 
+const otExtendedPanId *NcpNetworkProperties::GetExtendedPanId(void) const
+{
+    // TODO: Implement the method under NCP mode.
+    return nullptr;
+}
+
+const otExtAddress *NcpNetworkProperties::GetExtendedAddress(void) const
+{
+    // TODO: Implement the method under NCP mode.
+    return nullptr;
+}
+
+const char *NcpNetworkProperties::GetNetworkName(void) const
+{
+    // TODO: Implement the method under NCP mode.
+    return nullptr;
+}
+
 void NcpNetworkProperties::SetDatasetActiveTlvs(const otOperationalDatasetTlvs &aActiveOpDatasetTlvs)
 {
     mDatasetActiveTlvs.mLength = aActiveOpDatasetTlvs.mLength;
@@ -83,6 +101,22 @@ void NcpNetworkProperties::GetDatasetActiveTlvs(otOperationalDatasetTlvs &aDatas
 {
     aDatasetTlvs.mLength = mDatasetActiveTlvs.mLength;
     memcpy(aDatasetTlvs.mTlvs, mDatasetActiveTlvs.mTlvs, mDatasetActiveTlvs.mLength);
+}
+
+otError NcpNetworkProperties::GetDatasetActive(otOperationalDataset &aDataset) const
+{
+    otError error = OT_ERROR_NONE;
+
+    if (mDatasetActiveTlvs.mLength == 0)
+    {
+        error = OT_ERROR_NOT_FOUND;
+    }
+    else
+    {
+        error = otDatasetParseTlvs(&mDatasetActiveTlvs, &aDataset);
+    }
+
+    return error;
 }
 
 void NcpNetworkProperties::GetDatasetPendingTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const
@@ -97,6 +131,7 @@ NcpHost::NcpHost(const char *aInterfaceName, const char *aBackboneInterfaceName,
     : mSpinelDriver(*static_cast<ot::Spinel::SpinelDriver *>(otSysGetSpinelDriver()))
     , mNetif(mNcpSpinel)
     , mInfraIf(mNcpSpinel)
+    , mBorderAgent(mNcpSpinel)
 {
     memset(&mConfig, 0, sizeof(mConfig));
     mConfig.mInterfaceName         = aInterfaceName;
@@ -128,6 +163,14 @@ void NcpHost::Init(void)
         [this](uint32_t aInfraIfIndex, const otIp6Address &aAddr, const uint8_t *aData, uint16_t aDataLen) {
             OTBR_UNUSED_VARIABLE(mInfraIf.SendIcmp6Nd(aInfraIfIndex, aAddr, aData, aDataLen));
         });
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+    mNcpSpinel.BorderAgentSetUdpPortChangedCallback(
+        [this](uint16_t aUdpPort) { mBorderAgent.SetNcpUdpPort(aUdpPort); });
+    mNcpSpinel.BorderAgentSetUdpForwardSendCallback(
+        [this](const uint8_t *aUdpPayload, uint16_t aLength, const otIp6Address &aPeerAddr, uint16_t aPeerPort) {
+            mBorderAgent.UdpSend(aUdpPayload, aLength, aPeerAddr, aPeerPort);
+        });
+#endif
 
     if (mConfig.mBackboneInterfaceName != nullptr && strlen(mConfig.mBackboneInterfaceName) > 0)
     {
@@ -149,6 +192,7 @@ void NcpHost::Deinit(void)
 {
     mNcpSpinel.Deinit();
     mNetif.Deinit();
+    mBorderAgent.Deinit();
     otSysDeinit();
 }
 
@@ -253,11 +297,36 @@ void NcpHost::AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aC
     OT_UNUSED_VARIABLE(aCallback);
 }
 
+void NcpHost::NotifyDnssdStateChange(otPlatDnssdState aState)
+{
+    OTBR_UNUSED_VARIABLE(aState);
+}
+
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+void NcpHost::BorderAgentSetEnabled(bool aEnabled)
+{
+    mNcpSpinel.BorderAgentMeshCopSetEnabled(aEnabled);
+}
+
+void NcpHost::BorderAgentSetMeshCopServiceValues(const char                        *aServiceInstanceName,
+                                                 const char                        *aProductName,
+                                                 const otBorderAgentVendorTxtEntry *aVendorTxtEntries,
+                                                 uint8_t                            aLength)
+{
+    mNcpSpinel.BorderAgentMeshCopSetValues(aServiceInstanceName, aProductName, aVendorTxtEntries, aLength);
+}
+
+void NcpHost::BorderAgentSetEphemeralKeyChangedCallback(EphemeralKeyChangedCallback aCallback)
+{
+    OTBR_UNUSED_VARIABLE(aCallback);
+}
+#endif // OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+
 void NcpHost::Process(const MainloopContext &aMainloop)
 {
     mSpinelDriver.Process(&aMainloop);
-
     mNetif.Process(&aMainloop);
+    mBorderAgent.Process(aMainloop);
 }
 
 void NcpHost::Update(MainloopContext &aMainloop)
@@ -271,6 +340,7 @@ void NcpHost::Update(MainloopContext &aMainloop)
     }
 
     mNetif.UpdateFdSet(&aMainloop);
+    mBorderAgent.UpdateFdSet(aMainloop);
 }
 
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY

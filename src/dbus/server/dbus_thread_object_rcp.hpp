@@ -72,10 +72,13 @@ public:
     DBusThreadObjectRcp(DBusConnection      &aConnection,
                         const std::string   &aInterfaceName,
                         otbr::Host::RcpHost &aHost,
-                        Mdns::Publisher     *aPublisher,
-                        otbr::BorderAgent   &aBorderAgent);
+                        Mdns::Publisher     *aPublisher);
 
     otbrError Init(void) override;
+
+#if OTBR_ENABLE_BORDER_AGENT
+    void SetBorderAgent(otbr::BorderAgent &aBorderAgent);
+#endif
 
     void RegisterGetPropertyHandler(const std::string         &aInterfaceName,
                                     const std::string         &aPropertyName,
@@ -181,10 +184,15 @@ private:
     void ReplyScanResult(DBusRequest &aRequest, otError aError, const std::vector<otActiveScanResult> &aResult);
     void ReplyEnergyScanResult(DBusRequest &aRequest, otError aError, const std::vector<otEnergyScanResult> &aResult);
 
+    bool GetEphemeralKeyEnabled_(void);
+    void SetEphemeralKeyEnabled_(bool aEnabled);
+
     otbr::Host::RcpHost                                 &mHost;
     std::unordered_map<std::string, PropertyHandlerType> mGetPropertyHandlers;
     otbr::Mdns::Publisher                               *mPublisher;
-    otbr::BorderAgent                                   &mBorderAgent;
+#if OTBR_ENABLE_BORDER_AGENT
+    otbr::BorderAgent *mBorderAgent;
+#endif
 };
 
 /**

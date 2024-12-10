@@ -32,6 +32,8 @@
 
 #include <openthread/logging.h>
 #include <openthread/openthread-system.h>
+#include <openthread/random_crypto.h>
+#include <openthread/verhoeff_checksum.h>
 
 #include "lib/spinel/coprocessor_type.h"
 
@@ -80,6 +82,35 @@ std::unique_ptr<ThreadHost> ThreadHost::Create(const char                      *
     }
 
     return host;
+}
+
+otbrError ThreadHost::CreateEphemeralKey(std::string &aEphemeralKey)
+{
+    static constexpr int kEpskcRandomGenLen = 8;
+
+    std::string digitString;
+    char        checksum;
+    uint8_t     candidateBuffer[1];
+    otbrError   error = OTBR_ERROR_NONE;
+
+    for (uint8_t i = 0; i < kEpskcRandomGenLen; ++i)
+    {
+        while (true)
+        {
+            SuccessOrExit(otRandomCryptoFillBuffer(candidateBuffer, 1), error = OTBR_ERROR_ABORTED);
+            // Generates a random number in the range [0, 9] with equal probability.
+            if (candidateBuffer[0] < 250)
+            {
+                digitString += static_cast<char>('0' + candidateBuffer[0] % 10);
+                break;
+            }
+        }
+    }
+    SuccessOrExit(otVerhoeffChecksumCalculate(digitString.c_str(), &checksum), error = OTBR_ERROR_INVALID_ARGS);
+    aEphemeralKey = digitString + checksum;
+
+exit:
+    return error;
 }
 
 } // namespace Host

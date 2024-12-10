@@ -53,7 +53,7 @@ DBusAgent::DBusAgent(otbr::Host::ThreadHost &aHost, Mdns::Publisher &aPublisher)
 {
 }
 
-void DBusAgent::Init(otbr::BorderAgent &aBorderAgent)
+void DBusAgent::Init(void)
 {
     otbrError error = OTBR_ERROR_NONE;
 
@@ -71,7 +71,7 @@ void DBusAgent::Init(otbr::BorderAgent &aBorderAgent)
     {
     case OT_COPROCESSOR_RCP:
         mThreadObject = MakeUnique<DBusThreadObjectRcp>(*mConnection, mInterfaceName,
-                                                        static_cast<Host::RcpHost &>(mHost), &mPublisher, aBorderAgent);
+                                                        static_cast<Host::RcpHost &>(mHost), &mPublisher);
         break;
 
     case OT_COPROCESSOR_NCP:
@@ -87,6 +87,16 @@ void DBusAgent::Init(otbr::BorderAgent &aBorderAgent)
     error = mThreadObject->Init();
     VerifyOrDie(error == OTBR_ERROR_NONE, "Failed to initialize DBus Agent");
 }
+
+#if OTBR_ENABLE_BORDER_AGENT
+void DBusAgent::SetBorderAgent(otbr::BorderAgent &aBorderAgent)
+{
+    assert(mHost.GetCoprocessorType() == OT_COPROCESSOR_RCP);
+    assert(mThreadObject != nullptr);
+
+    static_cast<DBusThreadObjectRcp &>(*mThreadObject).SetBorderAgent(aBorderAgent);
+}
+#endif
 
 DBusAgent::UniqueDBusConnection DBusAgent::PrepareDBusConnection(void)
 {

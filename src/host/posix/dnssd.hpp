@@ -93,6 +93,8 @@ public:
      */
     void SetDnssdStateChangedCallback(DnssdStateChangeCallback aCallback);
 
+    void SetMappingPorts(uint16_t aHostPort, uint16_t aNcpPort);
+
     //-----------------------------------------------------------------------------------------------------------------
     // `otPlatDnssd` APIs (see `openthread/include/openthread/platform/dnssd.h` for detailed documentation).
 
@@ -129,6 +131,9 @@ private:
     bool                     mRunning;
     Mdns::Publisher::State   mPublisherState;
     DnssdStateChangeCallback mStateChangeCallback;
+
+    uint16_t mHostPort;
+    uint16_t mNcpPort;
 };
 
 } // namespace otbr
