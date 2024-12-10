@@ -1060,7 +1060,7 @@ exit:
 }
 #endif // OTBR_ENABLE_DHCP6_PD
 
-#if OTBR_ENABLE_BORDER_AGENT
+#if OTBR_ENABLE_BORDER_AGENT || OTBR_OT_BA_MESHCOP_PUBLISHER
 void ThreadHelper::RetrieveBorderAgentInfo(threadnetwork::TelemetryData::BorderAgentInfo *aBorderAgentInfo)
 {
     auto baCounters            = aBorderAgentInfo->mutable_border_agent_counters();
@@ -1599,9 +1599,9 @@ otError ThreadHelper::RetrieveTelemetryData(Mdns::Publisher *aPublisher, threadn
 #if OTBR_ENABLE_DHCP6_PD
         RetrievePdInfo(wpanBorderRouter);
 #endif // OTBR_ENABLE_DHCP6_PD
-#if OTBR_ENABLE_BORDER_AGENT
+#if OTBR_ENABLE_BORDER_AGENT || OTBR_OT_BA_MESHCOP_PUBLISHER
         RetrieveBorderAgentInfo(wpanBorderRouter->mutable_border_agent_info());
-#endif // OTBR_ENABLE_BORDER_AGENT
+#endif // OTBR_ENABLE_BORDER_AGENT || OTBR_OT_BA_MESHCOP_PUBLISHER
        // End of WpanBorderRouter section.
 
         // Start of WpanRcp section.

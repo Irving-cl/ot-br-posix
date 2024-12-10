@@ -67,7 +67,11 @@ public:
     /**
      * This method initializes the dbus agent.
      */
-    void Init(otbr::BorderAgent &aBorderAgent);
+    void Init(void);
+
+#if OTBR_ENABLE_BORDER_AGENT
+    void SetBorderAgent(otbr::BorderAgent &aBorderAgent);
+#endif
 
     void Update(MainloopContext &aMainloop) override;
     void Process(const MainloopContext &aMainloop) override;

@@ -62,6 +62,7 @@ set(OT_NAT64_TRANSLATOR ${OTBR_NAT64} CACHE STRING "enable NAT64 translator" FOR
 set(OT_NETDATA_PUBLISHER ON CACHE STRING "enable netdata publisher" FORCE)
 set(OT_NETDIAG_CLIENT ON CACHE STRING "enable Network Diagnostic client" FORCE)
 set(OT_PLATFORM "posix" CACHE STRING "use posix platform" FORCE)
+set(OT_PLATFORM_DNSSD ON CACHE STRING "enable platform dnssd" FORCE)
 set(OT_PLATFORM_NETIF ON CACHE STRING "enable platform netif" FORCE)
 set(OT_PLATFORM_UDP ON CACHE STRING "enable platform UDP" FORCE)
 set(OT_SERVICE ON CACHE STRING "enable service" FORCE)
@@ -76,6 +77,10 @@ set(OT_UPTIME ON CACHE STRING "enable uptime" FORCE)
 if (OTBR_SRP_ADVERTISING_PROXY)
     set(OT_SRP_SERVER ON CACHE STRING "enable SRP server" FORCE)
     set(OT_EXTERNAL_HEAP ON CACHE STRING "enable external heap" FORCE)
+endif()
+
+if (OTBR_OT_BA_MESHCOP_PUBLISHER)
+set(OT_BORDER_AGENT ON CACHE STRING "enable Border Agent" FORCE)
 endif()
 
 if (NOT OT_THREAD_VERSION STREQUAL "1.1")

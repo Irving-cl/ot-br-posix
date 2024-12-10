@@ -36,6 +36,8 @@
 
 #include "openthread-br/config.h"
 
+#if OTBR_ENABLE_BORDER_AGENT
+
 #include <vector>
 
 #include <stdint.h>
@@ -48,6 +50,10 @@
 #include "sdp_proxy/advertising_proxy.hpp"
 #include "sdp_proxy/discovery_proxy.hpp"
 #include "trel_dnssd/trel_dnssd.hpp"
+
+#if OTBR_ENABLE_BORDER_AGENT && OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+#error "OTBR_ENABLE_BORDER_AGENT and OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER CANNOT be enabled together!"
+#endif
 
 #ifndef OTBR_VENDOR_NAME
 #define OTBR_VENDOR_NAME "OpenThread"
@@ -142,17 +148,6 @@ public:
     void HandleMdnsState(Mdns::Publisher::State aState) override;
 
     /**
-     * This method creates ephemeral key in the Border Agent.
-     *
-     * @param[out] aEphemeralKey  The ephemeral key digit string of length 9 with first 8 digits randomly
-     *                            generated, and the last 9th digit as verhoeff checksum.
-     *
-     * @returns OTBR_ERROR_INVALID_ARGS  If Verhoeff checksum calculate returns error.
-     * @returns OTBR_ERROR_NONE          If successfully generate the ePSKc.
-     */
-    static otbrError CreateEphemeralKey(std::string &aEphemeralKey);
-
-    /**
      * This method adds a callback for ephemeral key changes.
      *
      * @param[in] aCallback  The callback to receive ephemeral key changed events.
@@ -211,5 +206,7 @@ private:
  */
 
 } // namespace otbr
+
+#endif // OTBR_ENABLE_BORDER_AGENT
 
 #endif // OTBR_AGENT_BORDER_AGENT_HPP_

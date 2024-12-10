@@ -333,7 +333,7 @@ private:
     void RetrieveHashedPdPrefix(std::string *aHashedPdPrefix);
     void RetrievePdProcessedRaInfo(threadnetwork::TelemetryData::PdProcessedRaInfo *aPdProcessedRaInfo);
 #endif
-#if OTBR_ENABLE_BORDER_AGENT
+#if OTBR_ENABLE_BORDER_AGENT || OTBR_OT_BA_MESHCOP_PUBLISHER
     void RetrieveBorderAgentInfo(threadnetwork::TelemetryData::BorderAgentInfo *aBorderAgentInfo);
 #endif
 #endif // OTBR_ENABLE_TELEMETRY_DATA_API

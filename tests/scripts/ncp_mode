@@ -46,6 +46,9 @@ readonly OT_CLI
 OT_NCP="${OT_NCP:-ot-ncp-ftd}"
 readonly OT_NCP
 
+OT_RCP="${OT_RCP:-ot-rcp}"
+readonly OT_RCP
+
 OTBR_DOCKER_IMAGE="${OTBR_DOCKER_IMAGE:-otbr-ncp}"
 readonly OTBR_DOCKER_IMAGE
 
@@ -133,14 +136,19 @@ do_build_ot_simulation()
 {
     sudo rm -rf "${ABS_TOP_OT_BUILDDIR}/ncp"
     sudo rm -rf "${ABS_TOP_OT_BUILDDIR}/cli"
+    sudo rm -rf "${ABS_TOP_OT_BUILDDIR}/rcp"
     OT_CMAKE_BUILD_DIR=${ABS_TOP_OT_BUILDDIR}/ncp "${ABS_TOP_OT_SRCDIR}"/script/cmake-build simulation \
         -DOT_MTD=OFF -DOT_RCP=OFF -DOT_APP_CLI=OFF -DOT_APP_RCP=OFF \
         -DOT_BORDER_ROUTING=ON -DOT_NCP_INFRA_IF=ON -DOT_SIMULATION_INFRA_IF=OFF \
         -DOT_SRP_SERVER=ON -DOT_SRP_ADV_PROXY=ON -DOT_PLATFORM_DNSSD=ON -DOT_SIMULATION_DNSSD=OFF -DOT_NCP_DNSSD=ON \
-        -DBUILD_TESTING=OFF
+        -DOT_UDP_FORWARD=ON -DBUILD_TESTING=OFF \
+        -DOT_FULL_LOGS=ON -DOT_LOG_OUTPUT=PLATFORM_DEFINED
     OT_CMAKE_BUILD_DIR=${ABS_TOP_OT_BUILDDIR}/cli "${ABS_TOP_OT_SRCDIR}"/script/cmake-build simulation \
         -DOT_MTD=OFF -DOT_RCP=OFF -DOT_APP_NCP=OFF -DOT_APP_RCP=OFF \
         -DOT_BORDER_ROUTING=OFF \
+        -DBUILD_TESTING=OFF
+    OT_CMAKE_BUILD_DIR=${ABS_TOP_OT_BUILDDIR}/rcp "${ABS_TOP_OT_SRCDIR}"/script/cmake-build simulation \
+        -DOT_FTD=OFF -DOT_MTD=OFF -DOT_APP_CLI=OFF -DOT_APP_NCP=OFF \
         -DBUILD_TESTING=OFF
 }
 
@@ -154,6 +162,8 @@ do_build_otbr_docker()
         "-DOTBR_TREL=ON"
         "-DOTBR_LINK_METRICS_TELEMETRY=ON"
         "-DOTBR_SRP_ADVERTISING_PROXY=ON"
+        "-DOTBR_BORDER_AGENT=OFF"
+        "-DOTBR_OT_BA_MESHCOP_PUBLISHER=ON"
     )
     sudo docker build -t "${OTBR_DOCKER_IMAGE}" \
         -f ./etc/docker/Dockerfile . \
@@ -189,12 +199,15 @@ test_setup()
 
     ot_cli=$(find "${ABS_TOP_OT_BUILDDIR}" -name "${OT_CLI}")
     ot_ncp=$(find "${ABS_TOP_OT_BUILDDIR}" -name "${OT_NCP}")
+    ot_rcp=$(find "${ABS_TOP_OT_BUILDDIR}" -name "${OT_RCP}")
     executable_or_die "${ot_cli}"
     executable_or_die "${ot_ncp}"
+    executable_or_die "${ot_rcp}"
 
     export EXP_OTBR_AGENT_PATH="${OTBR_AGENT_PATH}"
     export EXP_OT_CLI_PATH="${ot_cli}"
     export EXP_OT_NCP_PATH="${ot_ncp}"
+    export EXP_OT_RCP_PATH="${ot_rcp}"
 
     # We will be creating a lot of log information
     # Rotate logs so we have a clean and empty set of logs uncluttered with other stuff

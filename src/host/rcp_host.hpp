@@ -72,11 +72,15 @@ public:
     explicit OtNetworkProperties(void);
 
     // NetworkProperties methods
-    otDeviceRole GetDeviceRole(void) const override;
-    bool         Ip6IsEnabled(void) const override;
-    uint32_t     GetPartitionId(void) const override;
-    void         GetDatasetActiveTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const override;
-    void         GetDatasetPendingTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const override;
+    otDeviceRole           GetDeviceRole(void) const override;
+    bool                   Ip6IsEnabled(void) const override;
+    uint32_t               GetPartitionId(void) const override;
+    const otExtendedPanId *GetExtendedPanId(void) const override;
+    const otExtAddress    *GetExtendedAddress(void) const override;
+    const char            *GetNetworkName(void) const override;
+    void                   GetDatasetActiveTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const override;
+    otError                GetDatasetActive(otOperationalDataset &aDataset) const override;
+    void                   GetDatasetPendingTlvs(otOperationalDatasetTlvs &aDatasetTlvs) const override;
 
     // Set the otInstance
     void SetInstance(otInstance *aInstance);
@@ -211,6 +215,16 @@ public:
 #endif
     void AddThreadStateChangedCallback(ThreadStateChangedCallback aCallback) override;
     void AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) override;
+#if OTBR_ENABLE_OT_BA_MESHCOP_PUBLISHER
+    void BorderAgentSetEnabled(bool aEnabled) override;
+    void BorderAgentSetMeshCopServiceValues(const char    *aServiceInstanceName,
+                                            const char    *aProductName,
+                                            const char    *aVendorName,
+                                            const uint8_t *aVendorOui) override;
+    void BorderAgentSetEphemeralKeyChangedCallback(EphemeralKeyChangedCallback aCallback) override;
+#endif
+
+    void NotifyDnssdStateChange(otPlatDnssdState aState) override;
 
     CoprocessorType GetCoprocessorType(void) override
     {
@@ -267,6 +281,8 @@ private:
     static void SendMgmtPendingSetCallback(otError aError, void *aContext);
     void        SendMgmtPendingSetCallback(otError aError);
 
+    static void HandleEpskcStateChanged(void *aContext);
+
     bool IsAutoAttachEnabled(void);
     void DisableAutoAttach(void);
 
@@ -291,6 +307,7 @@ private:
     AsyncResultReceiver                     mSetThreadEnabledReceiver;
     AsyncResultReceiver                     mScheduleMigrationReceiver;
     std::vector<DetachGracefullyCallback>   mDetachGracefullyCallbacks;
+    EphemeralKeyChangedCallback             mEphemeralKeyChangedCallback;
 
 #if OTBR_ENABLE_FEATURE_FLAGS
     // The applied FeatureFlagList in ApplyFeatureFlagList call, used for debugging purpose.

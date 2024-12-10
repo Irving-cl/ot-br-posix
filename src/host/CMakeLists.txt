@@ -31,6 +31,8 @@ add_subdirectory(posix)
 add_library(otbr-ncp
     async_task.cpp
     async_task.hpp
+    ncp_border_agent.cpp
+    ncp_border_agent.hpp
     ncp_host.cpp
     ncp_host.hpp
     ncp_spinel.cpp
