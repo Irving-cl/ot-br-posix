@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['neighborinfo_699',['NeighborInfo',['../d2/d47/structotbr_1_1DBus_1_1NeighborInfo.html',1,'otbr::DBus']]],
-  ['nodeinfo_700',['NodeInfo',['../d6/dbf/structotbr_1_1rest_1_1NodeInfo.html',1,'otbr::rest']]]
+  ['leaderdata_0',['LeaderData',['../dd/d1d/structotbr_1_1DBus_1_1LeaderData.html',1,'otbr::DBus']]],
+  ['linkmodeconfig_1',['LinkModeConfig',['../d1/d82/structotbr_1_1DBus_1_1LinkModeConfig.html',1,'otbr::DBus']]]
 ];

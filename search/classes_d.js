@@ -1,8 +1,13 @@
 var searchData=
 [
-  ['taskrunner_715',['TaskRunner',['../dd/d62/classotbr_1_1TaskRunner.html',1,'otbr']]],
-  ['threadapidbus_716',['ThreadApiDBus',['../df/dcc/classotbr_1_1DBus_1_1ThreadApiDBus.html',1,'otbr::DBus']]],
-  ['threadhelper_717',['ThreadHelper',['../d4/d44/classotbr_1_1agent_1_1ThreadHelper.html',1,'otbr::agent']]],
-  ['tlv_718',['Tlv',['../d0/d02/classotbr_1_1Tlv.html',1,'otbr']]],
-  ['txtentry_719',['TxtEntry',['../d0/dee/structotbr_1_1Mdns_1_1Publisher_1_1TxtEntry.html',1,'otbr::Mdns::Publisher']]]
+  ['radiocoexmetrics_0',['RadioCoexMetrics',['../d5/d2d/structotbr_1_1DBus_1_1RadioCoexMetrics.html',1,'otbr::DBus']]],
+  ['radiospinelmetrics_1',['RadioSpinelMetrics',['../dd/d09/structotbr_1_1DBus_1_1RadioSpinelMetrics.html',1,'otbr::DBus']]],
+  ['rcphost_2',['RcpHost',['../d9/dd3/classotbr_1_1Host_1_1RcpHost.html',1,'otbr::Host']]],
+  ['rcpinterfacemetrics_3',['RcpInterfaceMetrics',['../dc/d2a/structotbr_1_1DBus_1_1RcpInterfaceMetrics.html',1,'otbr::DBus']]],
+  ['registration_4',['registration',['../da/d01/structotbr_1_1DBus_1_1SrpServerInfo_1_1Registration.html',1,'otbr::DBus::SrpServerInfo::Registration'],['../d3/dcf/classotbr_1_1Mdns_1_1Publisher_1_1Registration.html',1,'otbr::Mdns::Publisher::Registration']]],
+  ['request_5',['Request',['../da/df0/classotbr_1_1rest_1_1Request.html',1,'otbr::rest']]],
+  ['resource_6',['Resource',['../d7/d6e/classotbr_1_1rest_1_1Resource.html',1,'otbr::rest']]],
+  ['response_7',['Response',['../d2/db0/classotbr_1_1rest_1_1Response.html',1,'otbr::rest']]],
+  ['responsecounters_8',['ResponseCounters',['../d9/d29/structotbr_1_1DBus_1_1SrpServerInfo_1_1ResponseCounters.html',1,'otbr::DBus::SrpServerInfo']]],
+  ['restwebserver_9',['RestWebServer',['../d8/d5d/classotbr_1_1rest_1_1RestWebServer.html',1,'otbr::rest']]]
 ];
