@@ -211,6 +211,9 @@ public:
 #endif
     void AddThreadStateChangedCallback(ThreadStateChangedCallback aCallback) override;
     void AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) override;
+    void BackboneRouterSetMulticastListenerCallback(BackboneRouterMulticastListenerCallback aCallback) override;
+    void BackboneRouterSetEnabled(bool aEnabled) override;
+    void BackboneRouterSetStateChangedCallback(BackboneRouterStateChangedCallback aCallback) override;
 
     CoprocessorType GetCoprocessorType(void) override
     {

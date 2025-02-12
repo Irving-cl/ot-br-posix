@@ -37,6 +37,7 @@
 #include <functional>
 #include <memory>
 
+#include <openthread/backbone_router_ftd.h>
 #include <openthread/dataset.h>
 #include <openthread/error.h>
 #include <openthread/thread.h>
@@ -121,6 +122,9 @@ public:
     using DeviceRoleHandler          = std::function<void(otError, otDeviceRole)>;
     using ThreadStateChangedCallback = std::function<void(otChangedFlags aFlags)>;
     using ThreadEnabledStateCallback = std::function<void(ThreadEnabledState aState)>;
+    using BackboneRouterMulticastListenerCallback =
+        std::function<void(otBackboneRouterMulticastListenerEvent, Ip6Address)>;
+    using BackboneRouterStateChangedCallback = std::function<void(otBackboneRouterState)>;
 
     struct ChannelMaxPower
     {
@@ -248,6 +252,21 @@ public:
      * @param[in] aCallback  The callback to receive Thread Enabled state changed events.
      */
     virtual void AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aCallback) = 0;
+
+    /**
+     *
+     */
+    virtual void BackboneRouterSetMulticastListenerCallback(BackboneRouterMulticastListenerCallback aCallback) = 0;
+
+    /**
+     *
+     */
+    virtual void BackboneRouterSetEnabled(bool aEnabled) = 0;
+
+    /**
+     *
+     */
+    virtual void BackboneRouterSetStateChangedCallback(BackboneRouterStateChangedCallback aCallback) = 0;
 
     /**
      * Returns the co-processor type.

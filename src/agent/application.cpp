@@ -75,6 +75,14 @@ Application::Application(Host::ThreadHost  &aHost,
     {
         CreateRcpMode(aRestListenAddress, aRestListenPort);
     }
+    else if (mHost.GetCoprocessorType() == OT_COPROCESSOR_NCP)
+    {
+        CreateNcpMode();
+    }
+    else
+    {
+        assert(false);
+    }
 }
 
 void Application::Init(void)
@@ -311,6 +319,13 @@ void Application::DeinitRcpMode(void)
 #endif
 }
 
+void Application::CreateNcpMode(void)
+{
+#if OTBR_ENABLE_BACKBONE_ROUTER_MCAST_ROUTING
+    mMulticastRoutingManager = MakeUnique<BackboneRouter::MulticastRoutingManager>();
+#endif
+}
+
 void Application::InitNcpMode(void)
 {
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY
@@ -318,6 +333,24 @@ void Application::InitNcpMode(void)
     ncpHost.SetMdnsPublisher(mPublisher.get());
     mMdnsStateSubject.AddObserver(ncpHost);
     mPublisher->Start();
+#endif
+#if OTBR_ENABLE_BACKBONE_ROUTER_MCAST_ROUTING
+    mHost.BackboneRouterSetStateChangedCallback(
+        [this](otBackboneRouterState aState) { mMulticastRoutingManager->HandleStateChange(aState); });
+    mHost.BackboneRouterSetMulticastListenerCallback(
+        [this](otBackboneRouterMulticastListenerEvent aEvent, const Ip6Address &aAddress) {
+            mMulticastRoutingManager->HandleBackboneMulticastListenerEvent(aEvent, aAddress);
+        });
+#if OTBR_ENABLE_BACKBONE_ROUTER_ON_INIT
+    mHost.BackboneRouterSetEnabled(true);
+#endif
+#if OTBR_ENABLE_BACKBONE_ROUTER_MCAST_ROUTING
+    mMulticastRoutingManager->SetThreadIfIndex(if_nametoindex(mInterfaceName.c_str()));
+    if (strlen(mBackboneInterfaceName) != 0)
+    {
+        mMulticastRoutingManager->SetInfraIfIndex(if_nametoindex(mBackboneInterfaceName));
+    }
+#endif
 #endif
 #if OTBR_ENABLE_DBUS_SERVER
     mDBusAgent->Init(*mBorderAgent);
@@ -328,6 +361,9 @@ void Application::DeinitNcpMode(void)
 {
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY
     mPublisher->Stop();
+#endif
+#if OTBR_ENABLE_BACKBONE_ROUTER_MCAST_ROUTING
+    mMulticastRoutingManager->Deinit();
 #endif
 }
 

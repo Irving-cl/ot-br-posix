@@ -253,6 +253,21 @@ void NcpHost::AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aC
     OT_UNUSED_VARIABLE(aCallback);
 }
 
+void NcpHost::BackboneRouterSetMulticastListenerCallback(BackboneRouterMulticastListenerCallback aCallback)
+{
+    mNcpSpinel.BackboneRouterSetMulticastListenerCallback(aCallback);
+}
+
+void NcpHost::BackboneRouterSetEnabled(bool aEnabled)
+{
+    mNcpSpinel.BackboneRouterSetEnabled(aEnabled);
+}
+
+void NcpHost::BackboneRouterSetStateChangedCallback(BackboneRouterStateChangedCallback aCallback)
+{
+    mNcpSpinel.BackboneRouterSetStateChangedCallback(aCallback);
+}
+
 void NcpHost::Process(const MainloopContext &aMainloop)
 {
     mSpinelDriver.Process(&aMainloop);

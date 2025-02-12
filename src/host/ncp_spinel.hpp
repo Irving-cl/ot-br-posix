@@ -55,6 +55,7 @@
 #include "host/async_task.hpp"
 #include "host/posix/infra_if.hpp"
 #include "host/posix/netif.hpp"
+#include "host/thread_host.hpp"
 #include "mdns/mdns.hpp"
 
 namespace otbr {
@@ -282,6 +283,19 @@ public:
     }
 #endif // OTBR_ENABLE_SRP_ADVERTISING_PROXY
 
+    void BackboneRouterSetEnabled(bool aEnabled);
+
+    void BackboneRouterSetStateChangedCallback(const ThreadHost::BackboneRouterStateChangedCallback &aCallback)
+    {
+        mBackboneRouterStateChangedCallback = aCallback;
+    }
+
+    void BackboneRouterSetMulticastListenerCallback(
+        const ThreadHost::BackboneRouterMulticastListenerCallback &aCallback)
+    {
+        mBackboneRouterMulticastListenerCallback = aCallback;
+    }
+
 private:
     using FailureHandler = std::function<void(otError)>;
 
@@ -399,11 +413,13 @@ private:
     AsyncTaskPtr mThreadDetachGracefullyTask;
     AsyncTaskPtr mThreadErasePersistentInfoTask;
 
-    Ip6AddressTableCallback          mIp6AddressTableCallback;
-    Ip6MulticastAddressTableCallback mIp6MulticastAddressTableCallback;
-    Ip6ReceiveCallback               mIp6ReceiveCallback;
-    NetifStateChangedCallback        mNetifStateChangedCallback;
-    InfraIfSendIcmp6NdCallback       mInfraIfIcmp6NdCallback;
+    Ip6AddressTableCallback                             mIp6AddressTableCallback;
+    Ip6MulticastAddressTableCallback                    mIp6MulticastAddressTableCallback;
+    Ip6ReceiveCallback                                  mIp6ReceiveCallback;
+    NetifStateChangedCallback                           mNetifStateChangedCallback;
+    InfraIfSendIcmp6NdCallback                          mInfraIfIcmp6NdCallback;
+    ThreadHost::BackboneRouterStateChangedCallback      mBackboneRouterStateChangedCallback;
+    ThreadHost::BackboneRouterMulticastListenerCallback mBackboneRouterMulticastListenerCallback;
 };
 
 } // namespace Host

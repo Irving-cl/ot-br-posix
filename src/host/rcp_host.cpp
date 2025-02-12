@@ -410,6 +410,21 @@ void RcpHost::AddThreadEnabledStateChangedCallback(ThreadEnabledStateCallback aC
     mThreadEnabledStateChangedCallbacks.push_back(aCallback);
 }
 
+void RcpHost::BackboneRouterSetMulticastListenerCallback(BackboneRouterMulticastListenerCallback aCallback)
+{
+    OTBR_UNUSED_VARIABLE(aCallback);
+}
+
+void RcpHost::BackboneRouterSetEnabled(bool aEnabled)
+{
+    OTBR_UNUSED_VARIABLE(aEnabled);
+}
+
+void RcpHost::BackboneRouterSetStateChangedCallback(BackboneRouterStateChangedCallback aCallback)
+{
+    OTBR_UNUSED_VARIABLE(aCallback);
+}
+
 void RcpHost::Reset(void)
 {
     gPlatResetReason = OT_PLAT_RESET_REASON_SOFTWARE;

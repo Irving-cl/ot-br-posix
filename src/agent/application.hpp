@@ -49,6 +49,9 @@
 #if OTBR_ENABLE_BACKBONE_ROUTER
 #include "backbone_router/backbone_agent.hpp"
 #endif
+#if OTBR_ENABLE_BACKBONE_ROUTER_MCAST_ROUTING
+#include "backbone_router/multicast_routing_manager.hpp"
+#endif
 #if OTBR_ENABLE_REST_SERVER
 #include "rest/rest_web_server.hpp"
 #endif
@@ -261,6 +264,7 @@ private:
     void InitRcpMode(void);
     void DeinitRcpMode(void);
 
+    void CreateNcpMode(void);
     void InitNcpMode(void);
     void DeinitNcpMode(void);
 
@@ -279,6 +283,9 @@ private:
 #endif
 #if OTBR_ENABLE_BACKBONE_ROUTER
     std::unique_ptr<BackboneRouter::BackboneAgent> mBackboneAgent;
+#endif
+#if OTBR_ENABLE_BACKBONE_ROUTER_MCAST_ROUTING
+    std::unique_ptr<BackboneRouter::MulticastRoutingManager> mMulticastRoutingManager;
 #endif
 #if OTBR_ENABLE_SRP_ADVERTISING_PROXY
     std::unique_ptr<AdvertisingProxy> mAdvertisingProxy;

@@ -34,6 +34,7 @@
 
 #include <algorithm>
 
+#include <openthread/backbone_router_ftd.h>
 #include <openthread/dataset.h>
 #include <openthread/thread.h>
 #include <openthread/platform/dnssd.h>
@@ -271,6 +272,18 @@ void NcpSpinel::DnssdSetState(Mdns::Publisher::State aState)
 }
 #endif // OTBR_ENABLE_SRP_ADVERTISING_PROXY
 
+void NcpSpinel::BackboneRouterSetEnabled(bool aEnabled)
+{
+    otError      error;
+    EncodingFunc encodingFunc = [aEnabled](ot::Spinel::Encoder &aEncoder) { return aEncoder.WriteBool(aEnabled); };
+
+    error = SetProperty(SPINEL_PROP_BACKBONE_ROUTER_ENABLE, encodingFunc);
+    if (error != OT_ERROR_NONE)
+    {
+        otbrLogWarning("Failed to call BackboneRouterSetEnabled, %s", otThreadErrorToString(error));
+    }
+}
+
 void NcpSpinel::HandleReceivedFrame(const uint8_t *aFrame,
                                     uint16_t       aLength,
                                     uint8_t        aHeader,
@@ -334,7 +347,8 @@ void NcpSpinel::HandleNotification(const uint8_t *aFrame, uint16_t aLength)
     }
 
 exit:
-    otbrLogResult(error, "%s", __FUNCTION__);
+    // otbrLogResult(error, "%s", __FUNCTION__);
+    return;
 }
 
 void NcpSpinel::HandleResponse(spinel_tid_t aTid, const uint8_t *aFrame, uint16_t aLength)
@@ -481,6 +495,11 @@ void NcpSpinel::HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, ui
         break;
     }
 
+    case SPINEL_PROP_STREAM_NET_INSECURE:
+    {
+        break;
+    }
+
     case SPINEL_PROP_INFRA_IF_SEND_ICMP6:
     {
         uint32_t            infraIfIndex;
@@ -494,13 +513,22 @@ void NcpSpinel::HandleValueIs(spinel_prop_key_t aKey, const uint8_t *aBuffer, ui
         break;
     }
 
+    case SPINEL_PROP_BACKBONE_ROUTER_STATE:
+    {
+        uint8_t backboneRouterState;
+
+        SuccessOrExit(error = SpinelDataUnpack(aBuffer, aLength, SPINEL_DATATYPE_UINT8_S, &backboneRouterState));
+        SafeInvoke(mBackboneRouterStateChangedCallback, static_cast<otBackboneRouterState>(backboneRouterState));
+        break;
+    }
+
     default:
         otbrLogWarning("Received uncognized key: %u", aKey);
         break;
     }
 
 exit:
-    otbrLogResult(error, "NcpSpinel: %s", __FUNCTION__);
+    // otbrLogResult(error, "NcpSpinel: %s", __FUNCTION__);
     return;
 }
 
@@ -598,6 +626,15 @@ void NcpSpinel::HandleValueInserted(spinel_prop_key_t aKey, const uint8_t *aBuff
         break;
     }
 #endif // OTBR_ENABLE_SRP_ADVERTISING_PROXY
+    case SPINEL_PROP_BACKBONE_ROUTER_MULTICAST_LISTENER:
+    {
+        const otIp6Address *addr;
+
+        VerifyOrExit(decoder.ReadIp6Address(addr) == OT_ERROR_NONE, error = OTBR_ERROR_PARSE);
+        SafeInvoke(mBackboneRouterMulticastListenerCallback, OT_BACKBONE_ROUTER_MULTICAST_LISTENER_ADDED,
+                   Ip6Address(*addr));
+        break;
+    }
     default:
         error = OTBR_ERROR_DROPPED;
         break;
@@ -672,6 +709,15 @@ void NcpSpinel::HandleValueRemoved(spinel_prop_key_t aKey, const uint8_t *aBuffe
         break;
     }
 #endif // OTBR_ENABLE_SRP_ADVERTISING_PROXY
+    case SPINEL_PROP_BACKBONE_ROUTER_MULTICAST_LISTENER:
+    {
+        const otIp6Address *addr;
+
+        VerifyOrExit(decoder.ReadIp6Address(addr) == OT_ERROR_NONE, error = OTBR_ERROR_PARSE);
+        SafeInvoke(mBackboneRouterMulticastListenerCallback, OT_BACKBONE_ROUTER_MULTICAST_LISTENER_REMOVED,
+                   Ip6Address(*addr));
+        break;
+    }
     default:
         error = OTBR_ERROR_DROPPED;
         break;
@@ -752,6 +798,12 @@ otbrError NcpSpinel::HandleResponseForPropSet(spinel_tid_t      aTid,
         VerifyOrExit(aKey == SPINEL_PROP_LAST_STATUS, error = OTBR_ERROR_INVALID_STATE);
         SuccessOrExit(error = SpinelDataUnpack(aData, aLength, SPINEL_DATATYPE_UINT_PACKED_S, &status));
         otbrLogInfo("Update dnssd state result: %s", spinel_status_to_cstr(status));
+        break;
+
+    case SPINEL_PROP_BACKBONE_ROUTER_ENABLE:
+        VerifyOrExit(aKey == SPINEL_PROP_LAST_STATUS, error = OTBR_ERROR_INVALID_STATE);
+        SuccessOrExit(error = SpinelDataUnpack(aData, aLength, SPINEL_DATATYPE_UINT_PACKED_S, &status));
+        otbrLogInfo("Enable backbone router result: %s", spinel_status_to_cstr(status));
         break;
 
     default:
