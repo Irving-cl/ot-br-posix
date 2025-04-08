@@ -41,6 +41,11 @@ if (OTBR_BACKBONE_ROUTER)
     target_compile_definitions(otbr-config INTERFACE OTBR_ENABLE_BACKBONE_ROUTER=1)
 endif()
 
+option(OTBR_BACKBONE_ROUTER_MCAST_ROUTING "Enable Backbone Router" OFF)
+if (OTBR_BACKBONE_ROUTER_MCAST_ROUTING)
+    target_compile_definitions(otbr-config INTERFACE OTBR_ENABLE_BACKBONE_ROUTER_MCAST_ROUTING=1)
+endif()
+
 option(OTBR_BORDER_ROUTING "Enable Border Routing Manager" OFF)
 if (OTBR_BORDER_ROUTING)
     target_compile_definitions(otbr-config INTERFACE OTBR_ENABLE_BORDER_ROUTING=1)

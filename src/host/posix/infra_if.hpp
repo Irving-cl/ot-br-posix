@@ -70,15 +70,16 @@ public:
 
     InfraIf(Dependencies &aDependencies);
 
-    void      Init(void);
-    void      Deinit(void);
-    void      Process(const MainloopContext &aContext);
-    void      UpdateFdSet(MainloopContext &aContext);
-    otbrError SetInfraIf(const char *aIfName);
-    otbrError SendIcmp6Nd(uint32_t            aInfraIfIndex,
-                          const otIp6Address &aDestAddress,
-                          const uint8_t      *aBuffer,
-                          uint16_t            aBufferLength);
+    void         Init(void);
+    void         Deinit(void);
+    void         Process(const MainloopContext &aContext);
+    void         UpdateFdSet(MainloopContext &aContext);
+    otbrError    SetInfraIf(const char *aIfName);
+    otbrError    SendIcmp6Nd(uint32_t            aInfraIfIndex,
+                             const otIp6Address &aDestAddress,
+                             const uint8_t      *aBuffer,
+                             uint16_t            aBufferLength);
+    unsigned int GetIfIndex(void) const { return mInfraIfIndex; }
 
 private:
     static int              CreateIcmp6Socket(const char *aInfraIfName);
