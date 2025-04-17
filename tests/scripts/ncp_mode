@@ -46,6 +46,9 @@ readonly OT_CLI
 OT_NCP="${OT_NCP:-ot-ncp-ftd}"
 readonly OT_NCP
 
+OT_RCP="${OT_RCP:-ot-rcp}"
+readonly OT_RCP
+
 OTBR_DOCKER_IMAGE="${OTBR_DOCKER_IMAGE:-otbr-ncp}"
 readonly OTBR_DOCKER_IMAGE
 
@@ -137,6 +140,7 @@ do_build_ot_simulation()
 {
     sudo rm -rf "${ABS_TOP_OT_BUILDDIR}/ncp"
     sudo rm -rf "${ABS_TOP_OT_BUILDDIR}/cli"
+    sudo rm -rf "${ABS_TOP_OT_BUILDDIR}/rcp"
     OT_CMAKE_BUILD_DIR=${ABS_TOP_OT_BUILDDIR}/ncp "${ABS_TOP_OT_SRCDIR}"/script/cmake-build simulation \
         -DOT_MTD=OFF -DOT_RCP=OFF -DOT_APP_CLI=OFF -DOT_APP_RCP=OFF \
         -DOT_BORDER_ROUTING=ON -DOT_NCP_INFRA_IF=ON -DOT_SIMULATION_INFRA_IF=OFF \
@@ -146,6 +150,11 @@ do_build_ot_simulation()
     OT_CMAKE_BUILD_DIR=${ABS_TOP_OT_BUILDDIR}/cli "${ABS_TOP_OT_SRCDIR}"/script/cmake-build simulation \
         -DOT_MTD=OFF -DOT_RCP=OFF -DOT_APP_NCP=OFF -DOT_APP_RCP=OFF \
         -DOT_BORDER_ROUTING=OFF \
+        -DOT_MLR=ON \
+        -DBUILD_TESTING=OFF \
+        -DOT_FULL_LOGS=ON -DOT_LOG_OUTPUT=PLATFORM_DEFINED
+    OT_CMAKE_BUILD_DIR=${ABS_TOP_OT_BUILDDIR}/rcp "${ABS_TOP_OT_SRCDIR}"/script/cmake-build simulation \
+        -DOT_FTD=OFF -DOT_MTD=OFF -DOT_RCP=ON -DOT_APP_CLI=OFF -DOT_APP_NCP=OFF -DOT_APP_RCP=ON \
         -DBUILD_TESTING=OFF
 }
 
@@ -177,6 +186,7 @@ do_build_otbr_docker()
         "-DOTBR_LINK_METRICS_TELEMETRY=ON"
         "-DOTBR_SRP_ADVERTISING_PROXY=ON"
         "-DOTBR_BORDER_AGENT=ON"
+        "-DOTBR_BACKBONE_ROUTER=ON"
     )
     sudo docker build -t "${OTBR_DOCKER_IMAGE}" \
         -f ./etc/docker/test/Dockerfile . \
@@ -192,7 +202,7 @@ setup_infraif()
 {
     if ! ip link show backbone1 >/dev/null 2>&1; then
         echo "Creating backbone1 with Docker..."
-        docker network create --driver bridge --ipv6 --subnet 9101::/64 -o "com.docker.network.bridge.name"="backbone1" backbone1
+        docker network create --driver bridge -o "com.docker.network.bridge.name"="backbone1" backbone1
     else
         echo "backbone1 already exists."
     fi
@@ -211,12 +221,15 @@ test_setup()
 
     ot_cli=$(find "${ABS_TOP_OT_BUILDDIR}" -name "${OT_CLI}")
     ot_ncp=$(find "${ABS_TOP_OT_BUILDDIR}" -name "${OT_NCP}")
+    ot_rcp=$(find "${ABS_TOP_OT_BUILDDIR}" -name "${OT_RCP}")
     executable_or_die "${ot_cli}"
     executable_or_die "${ot_ncp}"
+    executable_or_die "${ot_rcp}"
 
     export EXP_OTBR_AGENT_PATH="${OTBR_AGENT_PATH}"
     export EXP_OT_CLI_PATH="${ot_cli}"
     export EXP_OT_NCP_PATH="${ot_ncp}"
+    export EXP_OT_RCP_PATH="${ot_rcp}"
 
     # We will be creating a lot of log information
     # Rotate logs so we have a clean and empty set of logs uncluttered with other stuff
@@ -248,6 +261,7 @@ test_teardown()
     sudo pkill -f "${OTBR_AGENT}" || true
     sudo pkill -f "${OT_CLI}" || true
     sudo pkill -f "${OT_NCP}" || true
+    sudo pkill -f "${OT_RCP}" || true
     wait
 
     echo 'clearing all'
