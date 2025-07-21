@@ -122,6 +122,7 @@ public:
     typedef std::vector<std::string> SubTypeList;
     typedef std::vector<Ip6Address>  AddressList;
     typedef std::vector<uint8_t>     KeyData;
+    typedef std::vector<uint8_t>     RecordData;
 
     /**
      * This structure represents information of a discovered service instance.
@@ -158,6 +159,19 @@ public:
     };
 
     /**
+     * This structure represents information of a discovered record.
+     */
+    struct DiscoveredRecordInfo
+    {
+        std::string mFirstLabel;     ///< The first label of the name.
+        std::string mNextLabel;      ///< The rest of the name labels. Does not include domain name. Can be empty.
+        uint16_t    mRecordType;     ///< The record type.
+        RecordData  mRecordData;     ///< The record data.
+        uint32_t    mNetifIndex = 0; ///< Network interface.
+        uint32_t    mTtl        = 0; ///< Record TTL.
+    };
+
+    /**
      * This function is called to notify a discovered service instance.
      */
     using DiscoveredServiceInstanceCallback =
@@ -168,6 +182,11 @@ public:
      */
     using DiscoveredHostCallback =
         std::function<void(const std::string &aHostName, const DiscoveredHostInfo &aHostInfo)>;
+
+    /**
+     * This function is called to notify a discovered record.
+     */
+    using DiscoveredRecordCallback = std::function<void(const DiscoveredRecordInfo &aRecordInfo)>;
 
     /**
      * mDNS state values.
@@ -333,6 +352,28 @@ public:
      * @param[in] aHostName  The host name (without domain).
      */
     virtual void UnsubscribeHost(const std::string &aHostName) = 0;
+
+    /**
+     * This method subscribes a given record.
+     *
+     * @param[in] aFirstLabel    The first label of the record name.
+     * @param[in] aNextLabel     The next label of the record name.
+     * @param[in] aRecordType    The type of the record.
+     */
+    virtual void SubscribeRecord(const std::string &aFirstLabel,
+                                 const std::string &aNextLabel,
+                                 uint16_t           aRecordType) = 0;
+
+    /**
+     * This method unsubscribes a given record.
+     *
+     * @param[in] aFirstLabel    The first label of the record name.
+     * @param[in] aNextLabel     The next label of the record name.
+     * @param[in] aRecordType    The type of the record.
+     */
+    virtual void UnsubscribeRecord(const std::string &aFirstLabel,
+                                   const std::string &aNextLabel,
+                                   uint16_t           aRecordType) = 0;
 
     /**
      * This method sets the callbacks for subscriptions.

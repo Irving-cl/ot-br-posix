@@ -68,12 +68,16 @@ public:
 
     void UnpublishService(const std::string &aName, const std::string &aType, ResultCallback &&aCallback) override;
 
-    void      UnpublishHost(const std::string &aName, ResultCallback &&aCallback) override;
-    void      UnpublishKey(const std::string &aName, ResultCallback &&aCallback) override;
-    void      SubscribeService(const std::string &aType, const std::string &aInstanceName) override;
-    void      UnsubscribeService(const std::string &aType, const std::string &aInstanceName) override;
-    void      SubscribeHost(const std::string &aHostName) override;
-    void      UnsubscribeHost(const std::string &aHostName) override;
+    void UnpublishHost(const std::string &aName, ResultCallback &&aCallback) override;
+    void UnpublishKey(const std::string &aName, ResultCallback &&aCallback) override;
+    void SubscribeService(const std::string &aType, const std::string &aInstanceName) override;
+    void UnsubscribeService(const std::string &aType, const std::string &aInstanceName) override;
+    void SubscribeHost(const std::string &aHostName) override;
+    void UnsubscribeHost(const std::string &aHostName) override;
+    void SubscribeRecord(const std::string &aFirstLabel, const std::string &aNextLabel, uint16_t aRecordType) override;
+    void UnsubscribeRecord(const std::string &aFirstLabel,
+                           const std::string &aNextLabel,
+                           uint16_t           aRecordType) override;
     otbrError Start(void) override;
     bool      IsStarted(void) const override;
     void      Stop(void) override { Stop(kNormalStop); }

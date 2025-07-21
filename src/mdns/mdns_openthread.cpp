@@ -113,6 +113,26 @@ void PublisherOpenThread::UnsubscribeHost(const std::string &aHostName)
     DieNow("UnsubscribeHost is not implemented.");
 }
 
+void PublisherOpenThread::SubscribeRecord(const std::string &aFirstLabel,
+                                          const std::string &aNextLabel,
+                                          uint16_t           aRecordType)
+{
+    OTBR_UNUSED_VARIABLE(aFirstLabel);
+    OTBR_UNUSED_VARIABLE(aNextLabel);
+    OTBR_UNUSED_VARIABLE(aRecordType);
+    DieNow("SubscribeRecord is not implemented.");
+}
+
+void PublisherOpenThread::UnsubscribeRecord(const std::string &aFirstLabel,
+                                            const std::string &aNextLabel,
+                                            uint16_t           aRecordType)
+{
+    OTBR_UNUSED_VARIABLE(aFirstLabel);
+    OTBR_UNUSED_VARIABLE(aNextLabel);
+    OTBR_UNUSED_VARIABLE(aRecordType);
+    DieNow("UnsubscribeRecord is not implemented.");
+}
+
 otbrError PublisherOpenThread::PublishServiceImpl(const std::string &aHostName,
                                                   const std::string &aName,
                                                   const std::string &aType,

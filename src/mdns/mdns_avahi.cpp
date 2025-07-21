@@ -1110,6 +1110,24 @@ exit:
     return;
 }
 
+void PublisherAvahi::SubscribeRecord(const std::string &aFirstLabel,
+                                     const std::string &aNextLabel,
+                                     uint16_t           aRecordType)
+{
+    OTBR_UNUSED_VARIABLE(aFirstLabel);
+    OTBR_UNUSED_VARIABLE(aNextLabel);
+    OTBR_UNUSED_VARIABLE(aRecordType);
+}
+
+void PublisherAvahi::UnsubscribeRecord(const std::string &aFirstLabel,
+                                       const std::string &aNextLabel,
+                                       uint16_t           aRecordType)
+{
+    OTBR_UNUSED_VARIABLE(aFirstLabel);
+    OTBR_UNUSED_VARIABLE(aNextLabel);
+    OTBR_UNUSED_VARIABLE(aRecordType);
+}
+
 Publisher *Publisher::Create(StateCallback aStateCallback)
 {
     return new PublisherAvahi(std::move(aStateCallback));

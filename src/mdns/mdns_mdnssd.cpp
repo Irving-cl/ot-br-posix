@@ -1016,6 +1016,24 @@ exit:
     return;
 }
 
+void PublisherMDnsSd::SubscribeRecord(const std::string &aFirstLabel,
+                                      const std::string &aNextLabel,
+                                      uint16_t           aRecordType)
+{
+    OTBR_UNUSED_VARIABLE(aFirstLabel);
+    OTBR_UNUSED_VARIABLE(aNextLabel);
+    OTBR_UNUSED_VARIABLE(aRecordType);
+}
+
+void PublisherMDnsSd::UnsubscribeRecord(const std::string &aFirstLabel,
+                                        const std::string &aNextLabel,
+                                        uint16_t           aRecordType)
+{
+    OTBR_UNUSED_VARIABLE(aFirstLabel);
+    OTBR_UNUSED_VARIABLE(aNextLabel);
+    OTBR_UNUSED_VARIABLE(aRecordType);
+}
+
 Publisher *Publisher::Create(StateCallback aCallback)
 {
     return new PublisherMDnsSd(aCallback);
