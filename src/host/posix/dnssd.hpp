@@ -199,7 +199,7 @@ public:
         }
 
         StdDnssdCallbackType mCallback;
-        uint64_t             mId;
+        uint64_t mId;
     };
 
     typedef StdDnssdCallback<std::function<void(const BrowseResult &)>, BrowseResult>   StdBrowseCallback;
